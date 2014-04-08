@@ -1,0 +1,44 @@
+% This file was created with JabRef 2.10.
+% Encoding: UTF-8
+
+
+@InProceedings{Fu2010,
+  Title                    = {Scalable parallel {I/O} alternatives for massively parallel partitioned solver systems},
+  Author                   = {Jing Fu and Ning Liu and Sahni, O. and Jansen, K.E. and Shephard, M.S. and Carothers, C.D.},
+  Booktitle                = {Parallel Distributed Processing, Workshops and Phd Forum (IPDPSW), 2010 IEEE International Symposium on},
+  Year                     = {2010},
+  Pages                    = {1-8},
+
+  Abstract                 = {With the development of high-performance computing, I/O issues have become the bottleneck for many massively parallel applications. This paper investigates scalable parallel I/O alternatives for massively parallel partitioned solver systems. Typically such systems have synchronized Â¿loopsÂ¿ and will write data in a well defined block I/O format consisting of a header and data portion. Our target use for such an parallel I/O subsystem is checkpoint-restart where writing is by far the most common operation and reading typically only happens during either initialization or during a restart operation because of a system failure. We compare four parallel I/O strategies: 1 POSIX File Per Processor (1PFPP), a synchronized parallel IO library (syncIO), Â¿Poor-Man'sÂ¿ Parallel I/O (PMPIO) and a new Â¿reduced blockingÂ¿ strategy (rbIO). Performance tests using real CFD solver data from PHASTA (an unstructured grid finite element Navier-Stokes solver) show that the syncIO strategy can achieve a read bandwidth of 6.6GB/Sec on Blue Gene/L using 16K processors which is significantly faster than 1PFPP or PMPIO approaches. The serial Â¿token-passingÂ¿ approach of PMPIO yields a 900 MB/sec write bandwidth on 16K processors using 1024 files and 1PFPP achieves 600 MB/sec on 8K processors while the Â¿reduced-blockedÂ¿ rbIO strategy achieves an actual writing performance of 2.3GB/sec and perceived/latency hiding writing performance of more than 21,000 GB/sec (i.e., 21TB/sec) on a 32,768 processor Blue Gene/L.},
+  Doi                      = {10.1109/IPDPSW.2010.5470887}
+}
+
+@InProceedings{Fu2011,
+  Title                    = {Parallel {I/O} Performance for Application-Level Checkpointing on the {B}lue {G}ene/{P} System.},
+  Author                   = {Fu, Jing and Min, Misun and Latham, Robert and Carothers, Christopher D.},
+  Booktitle                = {{CLUSTER}},
+  Year                     = {2011},
+  Pages                    = {465-473},
+
+  Doi                      = {10.1109/CLUSTER.2011.81}
+}
+
+@Article{Hedges2005,
+  Title                    = {Parallel File System Testing for the Lunatic Fringe: The Care and Feeding of Restless {I/O} Power Users},
+  Author                   = {Richard Hedges and Bill Loewe and Tyce McLarty and Chris Morrone},
+  Journal                  = {Mass Storage Systems and Technologies, IEEE / NASA Goddard Conference on},
+  Year                     = {2005},
+  Pages                    = {3-17},
+  Volume                   = {0},
+
+  __markedentry            = {[odin:]},
+  Doi                      = {10.1109/MSST.2005.22}
+}
+
+@InProceedings{Shan2007,
+  Title                    = {Using {IOR} to Analyze the {I/O} Performance for {HPC} Platforms},
+  Author                   = {Hongzhang Shan and John Shalf},
+  Booktitle                = {In: {C}ray User Group Conference ({CUG}’07},
+  Year                     = {2007}
+}
+
