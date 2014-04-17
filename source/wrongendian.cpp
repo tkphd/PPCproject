@@ -362,7 +362,7 @@ int main(int argc, char* argv[])
 	input.close();
 	output.close();
 
-	std::cout<<"\nEndianness of "<<argv[1]<<" successfully inverted.\n"<<std::endl;
+	std::cout<<"Endianness of "<<argv[1]<<" successfully inverted."<<std::endl;
 
 	#if defined(TIMING) || defined(DEBUG)
 	printf("%2.2e sec. reading data.\n", readtimer/clock_rate);

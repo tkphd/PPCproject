@@ -296,9 +296,9 @@ int main(int argc, char* argv[]) {
 				}
 
 				// write grid output to file
-				char* filename = new char[outfile.length()];
-				for (unsigned int i=0; i<outfile.length(); i++)
-					filename[i] = outfile[i];
+				char* filename = new char[outstr.str().length()];
+				for (unsigned int i=0; i<outstr.str().length(); i++)
+					filename[i] = outstr.str()[i];
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else
@@ -328,9 +328,9 @@ int main(int argc, char* argv[]) {
 				}
 
 				// write grid output to file
-				char* filename = new char[outfile.length()];
-				for (unsigned int i=0; i<outfile.length(); i++)
-					filename[i] = outfile[i];
+				char* filename = new char[outstr.str().length()];
+				for (unsigned int i=0; i<outstr.str().length(); i++)
+					filename[i] = outstr.str()[i];
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else
