@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 		std::cout << PROGRAM << ": " << MESSAGE << "\n\n";
 		std::cout << "Valid command lines have the form:\n";
 		std::cout << "    " << PROGRAM << " ";
-		std::cout << "[--help] [--init dimension [outfile]] [infile [outfile] steps [increment]]\n\n";
+		std::cout << "[--help] [--init dimension [outfile]] [--nonstop dimension outfile steps [increment]] [infile [outfile] steps [increment]]\n\n";
 		std::cout << "A few examples of using the command line follow.\n\n";
 		std::cout << "The command\n";
 		std::cout << "    " << PROGRAM << " --help\n";
@@ -61,29 +61,41 @@ int main(int argc, char* argv[]) {
 		std::cout << "The \"--init\" option can be used to initialize the grid with a Voronoi tessellation, e.g.\n";
 		std::cout << "    " << PROGRAM << " --init 2\n";
 		std::cout << "generates the Voronoi tessellation on a grid of dimension 2 and writes it to the \n";
-		std::cout << "file named \"voronoi.dat\".\n\n";
-		std::cout << "    " << PROGRAM << " --init 3 voronoi\n";
-		std::cout << " or " << PROGRAM << " --init 3 voronoi.dat\n";
+		std::cout << "file named \"voronoi.dat\".\n";
+		std::cout << std::endl;
+		std::cout << "    " << PROGRAM << " --init 3 voronoi.dat\n";
 		std::cout << "generates the Voronoi tessellation on a grid of dimension 3 and writes it to the \n";
-		std::cout << "file named \"voronoi.dat\".\n\n";
+		std::cout << "file named \"voronoi.dat\".\n";
+		std::cout << std::endl;
 		std::cout << "    " << PROGRAM << " polycrystal.dat 1000\n";
 		std::cout << "reads the grid contained within \"polycrystal.dat\" and runs a simulation for 1000 time steps.\n";
-		std::cout << "The final grid is written to a file named \"polycrystal.1000.dat\".\n\n";
+		std::cout << "The final grid is written to a file named \"polycrystal.1000.dat\".\n";
+		std::cout << std::endl;
 		std::cout << "    " << PROGRAM << " polycrystal.dat 1000 100\n";
 		std::cout << "reads the grid contained within \"polycrystal.dat\" and runs a simulation for 1000 time steps.\n";
 		std::cout << "The grid is then written to a file every 100 time steps.\n";
-		std::cout << "The resulting files are \nnamed \"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n\n";
+		std::cout << "The resulting files are \nnamed \"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n";
+		std::cout << std::endl;
 		std::cout << "    " << PROGRAM << " voronoi.dat polycrystal.dat 1000\n";
 		std::cout << "reads the grid contained within \"voronoi.dat\" and runs a simulation for 1000 time steps.\n";
-		std::cout << "The final grid is written to a file named \"polycrystal.1000.dat\".\n\n";
+		std::cout << "The final grid is written to a file named \"polycrystal.1000.dat\".\n";
+		std::cout << std::endl;
 		std::cout << "    " << PROGRAM << " polycrystal.0000.dat 1000 100\n";
 		std::cout << "reads the grid contained within \"polycrystal.0000.dat\" and runs a simulation for 1000 time steps.\n";
 		std::cout << "The grid is then written to a file every 100 time steps.\n";
-		std::cout << "The resulting files are \nnamed \"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n\n";
+		std::cout << "The resulting files are \nnamed \"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n";
+		std::cout << std::endl;
 		std::cout << "    " << PROGRAM << " polycrystal.1000.dat 2000 100\n";
 		std::cout << "reads the grid contained within \"polycrystal.1000.dat\" and runs a simulation for 1000 additional time steps.\n";
 		std::cout << "The grid is then written to a file every 100 time steps.\n";
-		std::cout << "The resulting files are \nnamed \"polycrystal.1100.dat\", \"polycrystal.1200.dat\", ... \"polycrystal.2000.dat\".\n\n";
+		std::cout << "The resulting files are named \n\"polycrystal.1100.dat\", \"polycrystal.1200.dat\", ... \"polycrystal.2000.dat\".\n";
+		std::cout << std::endl;
+		std::cout << "    " << PROGRAM << " --nonstop 3 polycrystal.0000.dat 1000 100\n";
+		std::cout << "generates the Voronoi tessellation on a grid of dimension 3 and writes it to the\n";
+		std::cout << "file named \"polycrystal.0000.dat\", then runs a simulation for 1000 time steps.\n";
+		std::cout << "The grid is then written to a file every 100 time steps.\n";
+		std::cout << "The resulting files are named \n\"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n";
+		std::cout << std::endl;
 		exit(0);
 	}
 
@@ -128,6 +140,231 @@ int main(int argc, char* argv[]) {
 			filename[i] = outfile[i];
 		MMSP::generate(dim, filename);
 		delete [] filename;
+	}
+
+
+
+	// run tessellation & simulation
+	else if (std::string(argv[1]) == std::string("--nonstop")) {
+		// bad argument list
+		if (argc!=6) {
+			std::cout << PROGRAM << ": bad argument list.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
+		}
+
+		// check problem dimension
+		if (std::string(argv[2]).find_first_not_of("0123456789") != std::string::npos) {
+			std::cout << PROGRAM << ": initial grid must have integral dimension.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
+		}
+
+		int dim = atoi(argv[2]);
+
+		// dimension must be 2 or 3
+		if (dim<2 or dim>3) {
+			std::cout<<PROGRAM<<": initial grid must be of dimension 2 or 3.  Use\n\n";
+			std::cout<<"    "<<PROGRAM<<" --help\n\n";
+			std::cout<<"to generate help message.\n\n";
+			exit(-1);
+		}
+
+		int steps;
+		int increment;
+		std::string outfile;
+
+		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
+			// set output file name
+			outfile = argv[3];
+
+			// must have integral number of time steps
+			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
+				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
+				std::cout << "    " << PROGRAM << " --help\n\n";
+				std::cout << "to generate help message.\n\n";
+				exit(-1);
+			}
+
+			steps = atoi(argv[4]);
+			increment = steps;
+
+			if (argc > 5) {
+				// must have integral output increment
+				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
+					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
+					std::cout << "    " << PROGRAM << " --help\n\n";
+					std::cout << "to generate help message.\n\n";
+					exit(-1);
+				}
+
+				increment = atoi(argv[5]);
+
+				// output increment must be smaller than number of steps
+				if (increment > steps) {
+					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
+					std::cout << "    " << PROGRAM << " --help\n\n";
+					std::cout << "to generate help message.\n\n";
+					exit(-1);
+				}
+			}
+		}
+
+		else {
+			// set output file name
+			outfile = argv[3];
+
+			// set number of time steps
+			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
+				// must have integral number of time steps
+				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
+				std::cout << "    " << PROGRAM << " --help\n\n";
+				std::cout << "to generate help message.\n\n";
+				exit(-1);
+			}
+
+			steps = atoi(argv[4]);
+			increment = steps;
+
+			if (argc > 5) {
+				// must have integral output increment
+				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
+					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
+					std::cout << "    " << PROGRAM << " --help\n\n";
+					std::cout << "to generate help message.\n\n";
+					exit(-1);
+				}
+
+				increment = atoi(argv[5]);
+
+				// output increment must be smaller than number of steps
+				if (increment > steps) {
+					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
+					std::cout << "    " << PROGRAM << " --help\n\n";
+					std::cout << "to generate help message.\n\n";
+					exit(-1);
+				}
+			}
+		}
+
+		// set output file basename
+		int iterations_start = 0;
+		std::string base;
+		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
+			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
+		else {
+			int last_dot = outfile.find_last_of(".");
+			int prev_dot = outfile.rfind('.', last_dot - 1);
+			std::string number = outfile.substr(prev_dot + 1, last_dot - prev_dot - 1);
+			bool isNumeric(true);
+			for (int i = 0; i < number.size(); ++i) {
+				if (!isdigit(number[i])) isNumeric = false;
+			}
+			if (isNumeric)
+				base = outfile.substr(0, outfile.rfind(".", outfile.find_last_of(".") - 1)) + ".";
+			else base = outfile.substr(0, outfile.find_last_of(".")) + ".";
+		}
+
+		// set output file suffix
+		std::string suffix = "";
+		if (outfile.find_last_of(".") != std::string::npos)
+			suffix = outfile.substr(outfile.find_last_of("."), std::string::npos);
+
+		// set output filename length
+		int length = base.length() + suffix.length();
+		if (1) {
+			std::stringstream slength;
+			slength << steps;
+			length += slength.str().length();
+		}
+
+		if (dim == 2) {
+			// tessellate
+			GRID2D* grid=MMSP::generate<2>();
+			assert(grid!=NULL);
+			char* filename = new char[outfile.length()];
+			for (unsigned int i=0; i<outfile.length(); i++)
+				filename[i] = outfile[i];
+			#ifdef BGQ
+			MMSP::output_bgq(*grid, filename);
+			#else
+			MMSP::output(*grid, filename);
+			#endif
+			delete [] filename; filename=NULL;
+
+			// perform computation
+			for (int i = iterations_start; i < steps; i += increment) {
+				MMSP::update(*grid, increment);
+
+				// generate output filename
+				std::stringstream outstr;
+				int n = outstr.str().length();
+				for (int j = 0; n < length; j++) {
+					outstr.str("");
+					outstr << base;
+					for (int k = 0; k < j; k++) outstr << 0;
+					outstr << i + increment << suffix;
+					n = outstr.str().length();
+				}
+
+				// write grid output to file
+				char* filename = new char[outstr.str().length()];
+				for (unsigned int i=0; i<outstr.str().length(); i++)
+					filename[i] = outstr.str()[i];
+				#ifdef BGQ
+				MMSP::output_bgq(*grid, filename);
+				#else
+				MMSP::output(*grid, filename);
+				#endif
+			}
+			if (grid!=NULL) delete grid; grid=NULL;
+		}
+
+		if (dim == 3) {
+			// tessellate
+			GRID3D* grid=MMSP::generate<3>();
+			assert(grid!=NULL);
+			char* filename = new char[outfile.length()];
+			for (unsigned int i=0; i<outfile.length(); i++)
+				filename[i] = outfile[i];
+			#ifdef BGQ
+			MMSP::output_bgq(*grid, filename);
+			#else
+			MMSP::output(*grid, filename);
+			#endif
+			delete [] filename; filename=NULL;
+
+			// perform computation
+			for (int i = iterations_start; i < steps; i += increment) {
+				MMSP::update(*grid, increment);
+
+				// generate output filename
+				std::stringstream outstr;
+				int n = outstr.str().length();
+				for (int j = 0; n < length; j++) {
+					outstr.str("");
+					outstr << base;
+					for (int k = 0; k < j; k++) outstr << 0;
+					outstr << i + increment << suffix;
+					n = outstr.str().length();
+				}
+
+				// write grid output to file
+				char* filename = new char[outstr.str().length()];
+				for (unsigned int i=0; i<outstr.str().length(); i++)
+					filename[i] = outstr.str()[i];
+				#ifdef BGQ
+				MMSP::output_bgq(*grid, filename);
+				#else
+				MMSP::output(*grid, filename);
+				#endif
+				delete [] filename; filename=NULL;
+			}
+			if (grid!=NULL) delete grid; grid=NULL;
+		}
+
 	}
 
 

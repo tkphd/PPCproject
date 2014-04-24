@@ -97,6 +97,8 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
   int id=MPI::COMM_WORLD.Get_rank();
   int np=MPI::COMM_WORLD.Get_size();
 
+	std::vector<unsigned int> neighbors;
+
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
@@ -123,6 +125,42 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 			}
 		}
 		set(grid(n), min_identity) = 1.;
+	}
+} // exact_voronoi
+
+template<int dim, typename T>
+void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+{
+  // Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
+  int id=MPI::COMM_WORLD.Get_rank();
+  int np=MPI::COMM_WORLD.Get_size();
+
+	for (unsigned long n=0; n<nodes(grid); ++n) {
+		const MMSP::vector<int> x=position(grid,n);
+		double min_distance=std::numeric_limits<double>::max();
+		int min_identity;
+
+		int identity=-1;
+		for (unsigned int rank=0; rank<seeds.size(); ++rank) {
+			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
+				++identity;
+				Point<int> seed=seeds[rank][s];
+				double distance=radius<dim,int>(x,seed);
+				if (distance<min_distance) {
+					min_distance=distance;
+					min_identity=identity;
+				}
+				// Check coordinates across periodic boundary
+				for (int d=0; d<dim; d++) check_boundary(seed[d], x0(grid,d), x1(grid,d), b0(grid,d), b1(grid,d));
+				if (seed==seeds[rank][s]) continue;
+				distance=radius<dim,int>(x,seed);
+				if (distance<min_distance) {
+					min_distance=distance;
+					min_identity=identity;
+				}
+			}
+		}
+		grid(n) = reinterpret_cast<T>(min_identity);
 	}
 } // exact_voronoi
 #endif
@@ -462,7 +500,123 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 
 
 template<int dim, typename T>
-void tessellate(MMSP::grid<dim, sparse<T> >& grid, const int& nseeds)
+void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
+{
+  int id=0;
+  int np=1;
+	#ifdef MPI_VERSION
+  id=MPI::COMM_WORLD.Get_rank();
+  np=MPI::COMM_WORLD.Get_size();
+	#endif
+  unsigned long int pseudorand_seed = time(NULL);
+  if (id == 0) std::cout << "Master seed is " << std::setw(10) << std::right << pseudorand_seed << ". <---- Record this value!" << std::endl;
+	#ifdef MPI_VERSION
+  pseudorand_seed = pseudorand_seed / (id + 1);
+	#endif
+  MTRand pseudorand_number( pseudorand_seed );
+  std::vector<Point<int> > local_seeds; // blank for now
+  std::vector<std::vector<Point<int> > > seeds;
+  while (seeds.size() <= np) seeds.push_back(local_seeds); // avoid a segfault
+
+  // Generate the seeds
+  if (dim == 2) {
+    int x = 0, y = 0;
+    //if (id == 0) seed_points << "x,y\n";
+    for (int i = 0; i < nseeds; ++i) {
+      x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
+      y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
+      bool dupe = false;
+      for (int j = 0; j < seeds[id].size(); ++j) {
+        // No duplicates!
+        if ((seeds[id][j].x == x) && (seeds[id][j].y == y)) {
+          --i;
+          dupe = true;
+        }
+        if (dupe) break; // stop scanning other seeds
+      }
+      if (dupe) continue; // don't add this seed
+      local_seeds.push_back( Point<int>(x, y, 0) );
+    }
+  }
+  else if (dim == 3) {
+    int x = 0, y = 0, z = 0;
+    //if (id == 0) seed_points << "x,y,z\n";
+    for (int i = 0; i < nseeds; ++i) {
+    	#ifdef BGQ
+      x = g0(grid, 0) + pseudorand_number.randInt( g1(grid, 0) - g0(grid, 0) - 1 );
+      y = g0(grid, 1) + pseudorand_number.randInt( g1(grid, 1) - g0(grid, 1) - 1 );
+      z = g0(grid, 2) + pseudorand_number.randInt( g1(grid, 2) - g0(grid, 2) - 1 );
+    	#else
+      x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
+      y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
+      z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
+      bool dupe = false;
+      for (int j = 0; j < seeds[id].size(); ++j) {
+        // No duplicates!
+        if ((seeds[id][j].x == x) && (seeds[id][j].y == y) && (seeds[id][j].z == z)) {
+          --i;
+          dupe = true;
+        }
+        if (dupe) break; // stop scanning other seeds
+      }
+      if (dupe) continue; // don't add this seed
+      #endif
+      local_seeds.push_back( Point<int>(x, y, z) );
+    }
+  } else {
+    std::cerr << "Error: Invalid dimension (" << dim << ") in tessellation." << std::endl;
+    std::exit(1);
+  }
+
+
+	#ifndef MPI_VERSION
+	seeds[id].insert(seeds[id].end(), local_seeds.begin(), local_seeds.end());
+	#else
+  // Exchange seeds between all processors
+  // Gather  of seeds per processor
+  int send_size=(local_seeds.size()) * (sizeof(Point<int>) / sizeof(int)); // number of integers
+  int* send_buffer = new int[send_size]; // number of integers: should be 3*seeds[id].size()
+  send_size = MMSP::seeds_to_buffer(local_seeds, send_buffer);
+	int* seed_sizes = new int[np];
+  MPI::COMM_WORLD.Barrier();
+	MPI::COMM_WORLD.Allgather(&send_size, 1, MPI_INT, seed_sizes, 1, MPI_INT);
+	int total_size=0;
+	for (unsigned int i=0; i<np; ++i) total_size+=seed_sizes[i];
+	int* offsets = new int[np];
+	offsets[0]=0;
+	for (unsigned int i=1; i<np; ++i) offsets[i]=seed_sizes[i-1]+offsets[i-1];
+	int* seed_block = new int[total_size];
+  MPI::COMM_WORLD.Barrier();
+	MPI::COMM_WORLD.Allgatherv(send_buffer, send_size, MPI_INT, seed_block, seed_sizes, offsets, MPI_INT);
+	delete [] send_buffer; send_buffer=NULL;
+
+	for (unsigned int i=0; i<np; ++i) {
+		int* p=seed_block+offsets[i];
+		MMSP::seeds_from_buffer(seeds[i], p, seed_sizes[i]);
+	}
+	delete [] seed_sizes; seed_sizes=NULL;
+	delete [] offsets; offsets=NULL;
+	delete [] seed_block; seed_block=NULL;
+  int vote=1;
+  int total_procs=0;
+  MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+  if (id==0) std::cout<<"Synchronized seeds on "<<total_procs<<" ranks."<<std::endl;
+	#endif
+
+  // Perform the actual tessellation
+	#ifndef MPI_VERSION
+	approximate_voronoi<dim,T>(grid, seeds);
+	#else
+  exact_voronoi<dim,T>(grid, seeds);
+	MPI::COMM_WORLD.Barrier();
+  total_procs=0;
+  MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+  if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
+	#endif
+} // tessellate
+
+template<int dim, typename T>
+void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
 {
   int id=0;
   int np=1;
