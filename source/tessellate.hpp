@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <set>
 #include <cmath>
 #include <ctime>
 #include <limits>
@@ -97,15 +98,65 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
   int id=MPI::COMM_WORLD.Get_rank();
   int np=MPI::COMM_WORLD.Get_size();
 
-	std::vector<unsigned int> neighbors;
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid, d));
+		neighbors.insert(N1(grid, d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
 
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
 		int min_identity;
 
-		int identity=-1;
-		for (unsigned int rank=0; rank<seeds.size(); ++rank) {
+		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+			int identity=-1;
+			unsigned int rank=*i;
+			for (unsigned int j=0; j<rank; j++) identity+=seeds[j].size();
 			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
 				++identity;
 				Point<int> seed=seeds[rank][s];
@@ -135,13 +186,65 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
   int id=MPI::COMM_WORLD.Get_rank();
   int np=MPI::COMM_WORLD.Get_size();
 
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid, d));
+		neighbors.insert(N1(grid, d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
+
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
 		int min_identity;
 
-		int identity=-1;
-		for (unsigned int rank=0; rank<seeds.size(); ++rank) {
+		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+			int identity=-1;
+			unsigned int rank=*i;
+			for (unsigned int j=0; j<rank; j++) identity+=seeds[j].size();
 			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
 				++identity;
 				Point<int> seed=seeds[rank][s];
@@ -542,11 +645,6 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
     int x = 0, y = 0, z = 0;
     //if (id == 0) seed_points << "x,y,z\n";
     for (int i = 0; i < nseeds; ++i) {
-    	#ifdef BGQ
-      x = g0(grid, 0) + pseudorand_number.randInt( g1(grid, 0) - g0(grid, 0) - 1 );
-      y = g0(grid, 1) + pseudorand_number.randInt( g1(grid, 1) - g0(grid, 1) - 1 );
-      z = g0(grid, 2) + pseudorand_number.randInt( g1(grid, 2) - g0(grid, 2) - 1 );
-    	#else
       x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
       y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
       z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
@@ -560,7 +658,7 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
         if (dupe) break; // stop scanning other seeds
       }
       if (dupe) continue; // don't add this seed
-      #endif
+      //#endif
       local_seeds.push_back( Point<int>(x, y, z) );
     }
   } else {
@@ -607,6 +705,7 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
 	#ifndef MPI_VERSION
 	approximate_voronoi<dim,T>(grid, seeds);
 	#else
+	//approximate_voronoi<dim,T>(grid, seeds);
   exact_voronoi<dim,T>(grid, seeds);
 	MPI::COMM_WORLD.Barrier();
   total_procs=0;
@@ -658,11 +757,6 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
     int x = 0, y = 0, z = 0;
     //if (id == 0) seed_points << "x,y,z\n";
     for (int i = 0; i < nseeds; ++i) {
-    	#ifdef BGQ
-      x = g0(grid, 0) + pseudorand_number.randInt( g1(grid, 0) - g0(grid, 0) - 1 );
-      y = g0(grid, 1) + pseudorand_number.randInt( g1(grid, 1) - g0(grid, 1) - 1 );
-      z = g0(grid, 2) + pseudorand_number.randInt( g1(grid, 2) - g0(grid, 2) - 1 );
-    	#else
       x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
       y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
       z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
@@ -676,7 +770,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
         if (dupe) break; // stop scanning other seeds
       }
       if (dupe) continue; // don't add this seed
-      #endif
+      //#endif
       local_seeds.push_back( Point<int>(x, y, z) );
     }
   } else {
@@ -723,6 +817,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
 	#ifndef MPI_VERSION
 	approximate_voronoi<dim,T>(grid, seeds);
 	#else
+	//approximate_voronoi<dim,T>(grid, seeds);
   exact_voronoi<dim,T>(grid, seeds);
 	MPI::COMM_WORLD.Barrier();
   total_procs=0;

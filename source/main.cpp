@@ -33,6 +33,7 @@
 #include<cstdlib>
 #include<cctype>
 #include"graingrowth.cpp"
+#include"rdtsc.h"
 
 int main(int argc, char* argv[]) {
 	MMSP::Init(argc, argv);
@@ -46,6 +47,26 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
+	unsigned int rank=0;
+	#ifdef MPI_VERSION
+	rank = MPI::COMM_WORLD.Get_rank();
+	#endif
+
+
+	#ifdef BGQ
+	double clock_rate=1600000000.0;
+	#else
+	// Read clock rate from GNU/Linux machine
+	double clock_rate=2666700000.0;
+	std::ifstream fh("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies");
+	if (!fh)
+		clock_rate=2667000000.0;
+	else {
+		fh>>clock_rate;
+		fh.close();
+	}
+	clock_rate*=1000.0;
+	#endif
 
 
 	// print help message and exit
@@ -282,7 +303,9 @@ int main(int argc, char* argv[]) {
 
 		if (dim == 2) {
 			// tessellate
+			unsigned long timer = rdtsc();
 			GRID2D* grid=MMSP::generate<2>();
+			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)
@@ -324,7 +347,9 @@ int main(int argc, char* argv[]) {
 
 		if (dim == 3) {
 			// tessellate
+			unsigned long timer = rdtsc();
 			GRID3D* grid=MMSP::generate<3>();
+			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)

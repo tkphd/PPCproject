@@ -105,9 +105,12 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	while (blocks*blocksize<filesize)	++blocks;
 	const unsigned int nwriters = (blocks>np)?np:blocks;
 	const unsigned long writesize=blocksize*(blocks/nwriters);
-	assert (writesize % blocksize==0);
+	assert(writesize % blocksize==0);
 	const unsigned long excessblocks=blocks % nwriters;
 	bool isWriter=false;
+	#ifdef DEBUG
+	if (rank==0) std::cout<<"  Preparing "<<nwriters<<" aggregator/writers; writesize is "<<writesize<<" B, with "<<excessblocks<<" excess blocks."<<std::endl;
+	#endif
 
 	// Scan to determine which ranks are writers
 	writeranks = new unsigned int[nwriters+1];
