@@ -28,9 +28,13 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 
 	// file open error check
 	//MPI::File output = MPI::File::Open(MPI::COMM_WORLD, filename, MPI::MODE_CREATE | MPI::MODE_WRONLY, MPI::INFO_NULL);
-	MPI::INFO info;
+	MPI_Info info;
+	#ifdef BGQ
 	MPI_Info_create(&info);
 	MPI_Info_set(&info, "IBM_largeblock_io", "true");
+	#else
+	info = MPI::INFO_NULL;
+	#endif
 	MPI_File output;
 	MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
 	if (!output) {

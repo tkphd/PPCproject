@@ -193,87 +193,46 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 
-		int steps;
-		int increment;
-		std::string outfile;
+		// set output file name
+		std::string outfile(argv[3]);
+		int steps=atoi(argv[4]);
+		int increment=steps;
 
-		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
-			// set output file name
-			outfile = argv[3];
-
-			// must have integral number of time steps
-			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
-				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
-				std::cout << "    " << PROGRAM << " --help\n\n";
-				std::cout << "to generate help message.\n\n";
-				exit(-1);
-			}
-
-			steps = atoi(argv[4]);
-			increment = steps;
-
-			if (argc > 5) {
-				// must have integral output increment
-				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
-					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-
-				increment = atoi(argv[5]);
-
-				// output increment must be smaller than number of steps
-				if (increment > steps) {
-					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-			}
+		// must have integral number of time steps
+		if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
+			std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
 		}
 
-		else {
-			// set output file name
-			outfile = argv[3];
-
-			// set number of time steps
-			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
-				// must have integral number of time steps
-				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
+		if (argc > 5) {
+			// must have integral output increment
+			if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
+				std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
 				std::cout << "    " << PROGRAM << " --help\n\n";
 				std::cout << "to generate help message.\n\n";
 				exit(-1);
 			}
 
-			steps = atoi(argv[4]);
-			increment = steps;
+			increment = atoi(argv[5]);
 
-			if (argc > 5) {
-				// must have integral output increment
-				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
-					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-
-				increment = atoi(argv[5]);
-
-				// output increment must be smaller than number of steps
-				if (increment > steps) {
-					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
+			// output increment must be smaller than number of steps
+			if (increment > steps) {
+				std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
+				std::cout << "    " << PROGRAM << " --help\n\n";
+				std::cout << "to generate help message.\n\n";
+				exit(-1);
 			}
 		}
 
 		// set output file basename
 		int iterations_start = 0;
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
+		//std::string stepstr("0", reinterpret_cast<int>(log10(steps)));
+		if (outfile.find_last_of(".")==std::string::npos) // no dot found
+			base = outfile + ".";
+		else if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
 			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
 		else {
 			int last_dot = outfile.find_last_of(".");
@@ -292,6 +251,7 @@ int main(int argc, char* argv[]) {
 		std::string suffix = "";
 		if (outfile.find_last_of(".") != std::string::npos)
 			suffix = outfile.substr(outfile.find_last_of("."), std::string::npos);
+		else suffix = "dat";
 
 		// set output filename length
 		int length = base.length() + suffix.length();
@@ -322,15 +282,10 @@ int main(int argc, char* argv[]) {
 				MMSP::update(*grid, increment);
 
 				// generate output filename
-				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				std::stringstream outstr(base);
+				while (outstr.str().length() < length)
+					outstr << 0;
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
@@ -366,15 +321,10 @@ int main(int argc, char* argv[]) {
 				MMSP::update(*grid, increment);
 
 				// generate output filename
-				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				std::stringstream outstr(base);
+				while (outstr.str().length() < length)
+					outstr << 0;
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
@@ -547,15 +497,10 @@ int main(int argc, char* argv[]) {
 				MMSP::update(grid, increment);
 
 				// generate output filename
-				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				std::stringstream outstr(base);
+				while (outstr.str().length() < length)
+					outstr << 0;
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
@@ -579,15 +524,10 @@ int main(int argc, char* argv[]) {
 				MMSP::update(grid, increment);
 
 				// generate output filename
-				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				std::stringstream outstr(base);
+				while (outstr.str().length() < length)
+					outstr << 0;
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
