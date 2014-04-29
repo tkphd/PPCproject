@@ -1,7 +1,8 @@
 // output.cpp
-// Custom output methods for the RPI Blue Gene/Q
+// Custom output methods for IBM Blue Gene/Q supercomputers:
+// specifically the RPI CCI BG/Q, "AMOS".
 
-#ifdef BGQ
+#ifdef MPI_VERSION
 
 #include"MMSP.grid.hpp"
 
@@ -27,8 +28,11 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 
 	// file open error check
 	//MPI::File output = MPI::File::Open(MPI::COMM_WORLD, filename, MPI::MODE_CREATE | MPI::MODE_WRONLY, MPI::INFO_NULL);
+	MPI::INFO info;
+	MPI_Info_create(&info);
+	MPI_Info_set(&info, "IBM_largeblock_io", "true");
 	MPI_File output;
-	MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE, MPI::INFO_NULL, &output);
+	MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
 	if (!output) {
 		if (rank==0) std::cerr << "File output error: could not open " << filename << "." << std::endl;
 		exit(-1);
@@ -36,10 +40,10 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI_File_set_size(output, 0);
 
 	// create buffer pointers
-  unsigned long *datasizes = NULL;
-  unsigned long *offsets = NULL;
-  unsigned long *aoffsets = NULL;
-  unsigned long *misalignments = NULL;
+  unsigned long* datasizes = NULL;
+  unsigned long* offsets = NULL;
+  unsigned long* aoffsets = NULL;
+  unsigned long* misalignments = NULL;
 	char* databuffer=NULL;
   char* headbuffer=NULL;
   char* filebuffer=NULL;
@@ -150,6 +154,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (rank>=writeranks[nwriters-1])
 		ws=filesize-aoffsets[nwriters-1]; // last block may be only partially-filled
 
+	/*
 	#ifdef DEBUG
 	if (rank==0)
 		std::cout<<"Filesize is "<<filesize<<" B, or "<<blocks<<" blocks with "<<excessblocks<<" extra."<<std::endl;
@@ -165,6 +170,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (rank==0) std::cout<<std::endl;
 	MPI::COMM_WORLD.Barrier();
 	#endif
+	*/
 
 	unsigned long deficiency=0;
 	if (rank>0) {
@@ -182,6 +188,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (datasizes[rank]-deficiency>ws)
 		std::fprintf(stderr, "Error on Rank %u, alignment: buffered %lu B > writesize %lu B.\n", rank, datasizes[rank]-deficiency, ws);
 	#endif
+	/*
 	#ifdef DEBUG
 	for (unsigned int r=0; r<np; ++r) {
 		MPI::COMM_WORLD.Barrier();
@@ -192,6 +199,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	}
 	if (rank==0) std::cout<<std::endl;
 	#endif
+	*/
 
 	// Accumulate data
 	const unsigned int silentranks=writeranks[nextwriter]-rank; // number of MPI ranks between this rank and the next writer

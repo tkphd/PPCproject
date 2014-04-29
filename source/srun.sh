@@ -8,14 +8,14 @@
 #
 #SBATCH --mail-type=END
 #SBATCH --mail-user=kellet@rpi.edu
-#SBATCH -D /gpfs/u/scratch/PCP4/PCP4kllt/project/
-#SBATCH --partition medium
-#SBATCH -t 30
-#SBATCH -N 128
-#SBATCH -n 8192
+#SBATCH -D /gpfs/u/scratch/GGST/GGSTkllt/project/
+#SBATCH --partition small
+#SBATCH -t 90
+#SBATCH -N 64
+#SBATCH -n 2048
 #SBATCH --overcommit
-#SBATCH -o /gpfs/u/barn/PCP4/PCP4kllt/project/proj_128_08192.log
+#SBATCH -o /gpfs/u/barn/GGST/GGSTkllt/project/proj_64_2048.log
 
-# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_GG.out --init 3 voronoi.00000.dat
-# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_GG.out voronoi.00000.dat 10000 100
-srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_GG.out --nonstop 3 voronoi.0000.dat 1000 100
+srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --init 3 voronoi.0000.dat
+srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out voronoi.0000.dat 1500 50
+# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --nonstop 3 voronoi.0000.dat 1500 50

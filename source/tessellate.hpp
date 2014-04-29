@@ -482,7 +482,8 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
     }
 
     // Copy result from distance_grid to phase-field grid
-    for (int i = 0; i < nodes(distance_grid); ++i) set(grid(i), (distance_grid(i)).getID()) = 1.;
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	grid(i) = distance_grid(i).getID();
   } else if (dim == 3) {
     int min[3];
     int max[3];
@@ -592,7 +593,8 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
     }
 
     // Copy result from distance_grid to phase-field grid
-    for (int i = 0; i < nodes(distance_grid); ++i) set(grid(i), (distance_grid(i)).getID()) = 1.;
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	grid(i) = distance_grid(i).getID();
   }
   else
   {
@@ -705,7 +707,6 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
 	#ifndef MPI_VERSION
 	approximate_voronoi<dim,T>(grid, seeds);
 	#else
-	//approximate_voronoi<dim,T>(grid, seeds);
   exact_voronoi<dim,T>(grid, seeds);
 	MPI::COMM_WORLD.Barrier();
   total_procs=0;
@@ -817,7 +818,6 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
 	#ifndef MPI_VERSION
 	approximate_voronoi<dim,T>(grid, seeds);
 	#else
-	//approximate_voronoi<dim,T>(grid, seeds);
   exact_voronoi<dim,T>(grid, seeds);
 	MPI::COMM_WORLD.Barrier();
   total_procs=0;
