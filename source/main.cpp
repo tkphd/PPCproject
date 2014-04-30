@@ -35,6 +35,13 @@
 #include"graingrowth.cpp"
 #include"rdtsc.h"
 
+template <typename T> int ilength(const T& i)
+{
+	std::stringstream l;
+	l << i;
+	return l.str().length();
+}
+
 int main(int argc, char* argv[]) {
 	MMSP::Init(argc, argv);
 
@@ -193,113 +200,65 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 
-		int steps;
-		int increment;
-		std::string outfile;
+		// set output file name
+		const std::string outfile(argv[3]);
 
-		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
-			// set output file name
-			outfile = argv[3];
-
-			// must have integral number of time steps
-			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
-				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
-				std::cout << "    " << PROGRAM << " --help\n\n";
-				std::cout << "to generate help message.\n\n";
-				exit(-1);
-			}
-
-			steps = atoi(argv[4]);
-			increment = steps;
-
-			if (argc > 5) {
-				// must have integral output increment
-				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
-					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-
-				increment = atoi(argv[5]);
-
-				// output increment must be smaller than number of steps
-				if (increment > steps) {
-					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-			}
+		// must have integral number of time steps
+		if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
+			std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
 		}
 
-		else {
-			// set output file name
-			outfile = argv[3];
+		int steps=atoi(argv[4]);
+		// must have integral output increment
+		if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
+			std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
+		}
 
-			// set number of time steps
-			if (std::string(argv[4]).find_first_not_of("0123456789") != std::string::npos) {
-				// must have integral number of time steps
-				std::cout << PROGRAM << ": number of time steps must have integral value.  Use\n\n";
-				std::cout << "    " << PROGRAM << " --help\n\n";
-				std::cout << "to generate help message.\n\n";
-				exit(-1);
-			}
-
-			steps = atoi(argv[4]);
-			increment = steps;
-
-			if (argc > 5) {
-				// must have integral output increment
-				if (std::string(argv[5]).find_first_not_of("0123456789") != std::string::npos) {
-					std::cout << PROGRAM << ": output increment must have integral value.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-
-				increment = atoi(argv[5]);
-
-				// output increment must be smaller than number of steps
-				if (increment > steps) {
-					std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
-					std::cout << "    " << PROGRAM << " --help\n\n";
-					std::cout << "to generate help message.\n\n";
-					exit(-1);
-				}
-			}
+		int increment = atoi(argv[5]);
+		// output increment must be smaller than number of steps
+		if (increment > steps) {
+			std::cout << PROGRAM << ": output increment must be smaller than number of time steps.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
 		}
 
 		// set output file basename
 		int iterations_start = 0;
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
-			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
+		const int last_dot = outfile.find_last_of(".");
+		if (outfile.find_last_of(".")==std::string::npos) // no dot found
+			base = outfile + ".";
+		else if (outfile.rfind(".", last_dot - 1) == -1) // only one dot found
+			base = outfile.substr(0, last_dot) + ".";
 		else {
-			int last_dot = outfile.find_last_of(".");
-			int prev_dot = outfile.rfind('.', last_dot - 1);
+			int prev_dot = outfile.rfind(".", last_dot - 1);
 			std::string number = outfile.substr(prev_dot + 1, last_dot - prev_dot - 1);
 			bool isNumeric(true);
-			for (int i = 0; i < number.size(); ++i) {
+			for (int i = 0; i < number.size() && isNumeric; ++i)
 				if (!isdigit(number[i])) isNumeric = false;
-			}
 			if (isNumeric)
-				base = outfile.substr(0, outfile.rfind(".", outfile.find_last_of(".") - 1)) + ".";
-			else base = outfile.substr(0, outfile.find_last_of(".")) + ".";
+				base = outfile.substr(0, prev_dot) + ".";
+			else base = outfile.substr(0, last_dot) + ".";
 		}
+		#ifdef DEBUG
+		if (rank==0) std::cout<<"Filename base is "<<base<<std::endl;
+		#endif
 
 		// set output file suffix
 		std::string suffix = "";
 		if (outfile.find_last_of(".") != std::string::npos)
 			suffix = outfile.substr(outfile.find_last_of("."), std::string::npos);
+		else suffix = "dat";
 
 		// set output filename length
-		int length = base.length() + suffix.length();
-		if (1) {
-			std::stringstream slength;
-			slength << steps;
-			length += slength.str().length();
-		}
+		int length = base.length() + suffix.length() + ilength(steps);
 
 		if (dim == 2) {
 			// tessellate
@@ -310,11 +269,22 @@ int main(int argc, char* argv[]) {
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
+
+			// write initialized grid to file
+			unsigned long iotimer = rdtsc();
 			#ifdef BGQ
 			MMSP::output_bgq(*grid, filename);
 			#else
 			MMSP::output(*grid, filename);
 			#endif
+			iotimer = rdtsc() - iotimer;
+			unsigned long allio=0;
+			#ifdef MPI_VERSION
+			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			#else
+			allio=iotimer;
+			#endif
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
@@ -323,24 +293,33 @@ int main(int argc, char* argv[]) {
 
 				// generate output filename
 				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				outstr << base;
+				while (outstr.str().length() < length - ilength(i+increment) - suffix.length())
+					outstr << '0';
+				outstr << i+increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				iotimer = rdtsc();
+				#ifdef DEBUG
+				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
+				#endif
 				#ifdef BGQ
 				MMSP::output_bgq(*grid, filename);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
+				iotimer = rdtsc() - iotimer;
+				#ifdef MPI_VERSION
+				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				#else
+				allio = iotimer;
+				#endif
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				delete [] filename; filename=NULL;
+				outstr.str("");
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
 		}
@@ -354,11 +333,20 @@ int main(int argc, char* argv[]) {
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
+			unsigned long iotimer = rdtsc();
 			#ifdef BGQ
 			MMSP::output_bgq(*grid, filename);
 			#else
 			MMSP::output(*grid, filename);
 			#endif
+			iotimer = rdtsc() - iotimer;
+			unsigned long allio = 0;
+			#ifdef MPI_VERSION
+			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			#else
+			allio = iotimer;
+			#endif
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
@@ -367,24 +355,32 @@ int main(int argc, char* argv[]) {
 
 				// generate output filename
 				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				outstr << base;
+				while (outstr.str().length() < length - ilength(i+increment) - suffix.length())
+					outstr << '0';
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				iotimer = rdtsc();
+				#ifdef DEBUG
+				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
+				#endif
 				#ifdef BGQ
 				MMSP::output_bgq(*grid, filename);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
+				iotimer = rdtsc() - iotimer;
+				#ifdef MPI_VERSION
+				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				#else
+				allio = iotimer;
+				#endif
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				outstr.str("");
 				delete [] filename; filename=NULL;
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
@@ -530,13 +526,7 @@ int main(int argc, char* argv[]) {
 			suffix = outfile.substr(outfile.find_last_of("."), std::string::npos);
 
 		// set output filename length
-		int length = base.length() + suffix.length();
-		if (1) {
-			std::stringstream slength;
-			slength << steps;
-			length += slength.str().length();
-		}
-
+		int length = base.length() + suffix.length() + ilength(steps);
 
 		if (dim == 2) {
 			// construct grid object
@@ -548,24 +538,24 @@ int main(int argc, char* argv[]) {
 
 				// generate output filename
 				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				outstr << base;
+				while (outstr.str().length() < length - ilength(i+increment) - suffix.length())
+					outstr << '0';
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				#ifdef DEBUG
+				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
+				#endif
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else
 				MMSP::output(grid, filename);
 				#endif
+				outstr.str("");
 				delete [] filename;
 			}
 		}
@@ -580,24 +570,24 @@ int main(int argc, char* argv[]) {
 
 				// generate output filename
 				std::stringstream outstr;
-				int n = outstr.str().length();
-				for (int j = 0; n < length; j++) {
-					outstr.str("");
-					outstr << base;
-					for (int k = 0; k < j; k++) outstr << 0;
-					outstr << i + increment << suffix;
-					n = outstr.str().length();
-				}
+				outstr << base;
+				while (outstr.str().length() < length - ilength(i+increment) - suffix.length())
+					outstr << '0';
+				outstr << i + increment << suffix;
 
 				// write grid output to file
 				char* filename = new char[outstr.str().length()];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				#ifdef DEBUG
+				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
+				#endif
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else
 				MMSP::output(grid, filename);
 				#endif
+				outstr.str("");
 				delete [] filename;
 			}
 		}

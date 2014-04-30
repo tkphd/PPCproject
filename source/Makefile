@@ -17,9 +17,9 @@ pcompiler = mpic++ -O3
 flags = -I$(incdir) -I$(algodir) -I$(algodir)/topology
 
 # RPI CCI AMOS compilers/flags
-qcompiler = mpic++ -g -qarch=qp -qtune=qp -qflag=w -qstrict -qreport
+#qcompiler = mpic++ -g -qarch=qp -qtune=qp -qflag=w -qstrict -qreport
 #qcompiler = mpic++ -O3 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qhot=fastmath
-#qcompiler = mpic++ -O5 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qsimd=auto -qhot=fastmath -qinline=level=10
+qcompiler = mpic++ -O5 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qsimd=auto -qhot=fastmath -qinline=level=10
 qflags = $(CFLAGS) $(BG_INC) $(BG_LIB) $(LDFLAGS) $(flags)
 
 # dependencies
@@ -35,7 +35,7 @@ parallel: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(pcompiler) -DDEBUG $(flags) -include mpi.h $< -o parallel_GG.out -lz
 
 bgq: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(qcompiler) $(qflags) -DBGQ -DDEBUG $< -o q_GG.out -lz
+	$(qcompiler) $(qflags) -DBGQ $< -o q_GG.out -lz
 
 wrongendian: wrongendian.cpp
 	$(compiler) $< -o $@.out -lz -pthread
