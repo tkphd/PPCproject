@@ -239,13 +239,13 @@ int main(int argc, char* argv[]) {
 		const int last_dot = outfile.find_last_of(".");
 		if (outfile.find_last_of(".")==std::string::npos) // no dot found
 			base = outfile + ".";
-		else if (outfile.rfind(".", last_dot - 1) == -1) // only one dot found
+		else if (outfile.rfind(".", last_dot - 1) == std::string::npos) // only one dot found
 			base = outfile.substr(0, last_dot) + ".";
 		else {
 			int prev_dot = outfile.rfind(".", last_dot - 1);
 			std::string number = outfile.substr(prev_dot + 1, last_dot - prev_dot - 1);
 			bool isNumeric(true);
-			for (int i = 0; i < number.size() && isNumeric; ++i)
+			for (unsigned int i = 0; i < number.size() && isNumeric; ++i)
 				if (!isdigit(number[i])) isNumeric = false;
 			if (isNumeric)
 				base = outfile.substr(0, prev_dot) + ".";
@@ -276,19 +276,23 @@ int main(int argc, char* argv[]) {
 
 			// write initialized grid to file
 			unsigned long iotimer = rdtsc();
+			double clockbw = 0.0;
 			#ifdef BGQ
-			MMSP::output_bgq(*grid, filename);
+			clockbw = MMSP::output_bgq(*grid, filename);
+			clockbw *= clock_rate;
 			#else
 			MMSP::output(*grid, filename);
 			#endif
 			iotimer = rdtsc() - iotimer;
 			unsigned long allio=0;
+			double allbw = 0.0;
 			#ifdef MPI_VERSION
 			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 			#else
 			allio=iotimer;
 			#endif
-			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
@@ -509,14 +513,14 @@ int main(int argc, char* argv[]) {
 			iterations_start = atoi(number.c_str());
 		}
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
+		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == std::string::npos) // only one dot found
 			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
 		else {
 			int last_dot = outfile.find_last_of(".");
 			int prev_dot = outfile.rfind('.', last_dot - 1);
 			std::string number = outfile.substr(prev_dot + 1, last_dot - prev_dot - 1);
 			bool isNumeric(true);
-			for (int i = 0; i < number.size(); ++i) {
+			for (unsigned int i = 0; i < number.size(); ++i) {
 				if (!isdigit(number[i])) isNumeric = false;
 			}
 			if (isNumeric)
