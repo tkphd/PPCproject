@@ -365,8 +365,7 @@ void seeds_from_buffer(std::vector<Point<int> >& vp, int* &q, const int& size)
 
 
 template<int dim, typename T>
-//void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
-void approximate_voronoi(MMSP::grid<dim, T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
 {
   // Implements a fast marching algorithm to generate the distance map
   // Based on code written by Barb Cutler, RPI Comp. Sci. Dept., for CSCI-1200.
