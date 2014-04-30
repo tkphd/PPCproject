@@ -114,7 +114,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	aoffsets = new unsigned long[nwriters];
 	writeranks[nwriters]=np-1; // generalization for last writer's benefit
 	for (unsigned int w=0; w<nwriters; w++) {
-		static unsigned int i=0; // Why is this necessary?
+		static unsigned int i=0;
 		unsigned long ws=(w<=excessblocks)?writesize+blocksize:writesize;
 		// file offset of the w^th writer
 		aoffsets[w]=(w>0)?ws+aoffsets[w-1]:0;
@@ -211,7 +211,6 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 			if (p+recv_size>filebuffer+ws)
 				std::fprintf(stderr, "Error on Rank %u, receiving from %i: %lu B > %lu B\n", rank, recv_proc, p-filebuffer, ws-recv_size);
 			#endif
-			//recvrequests[i] = MPI::COMM_WORLD.Irecv(p, recv_size, MPI_CHAR, recv_proc, recv_proc);
 			MPI_Irecv(p, recv_size, MPI_CHAR, recv_proc, recv_proc, MPI::COMM_WORLD, &recvrequests[i]);
 			p+=recv_size;
 		}
@@ -222,19 +221,15 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		if (rank>0 && misalignments[rank]>0) {
 			q=databuffer;
 			assert(writeranks[prevwriter]<rank);
-			//sendrequest = MPI::COMM_WORLD.Isend(q, misalignments[rank], MPI_CHAR, writeranks[prevwriter], rank);
 			MPI_Isend(q, misalignments[rank], MPI_CHAR, writeranks[prevwriter], rank, MPI::COMM_WORLD, &sendrequest);
 		}
 	}
-	//MPI::COMM_WORLD.Barrier();
 	if (misalignments[rank] >= datasizes[rank]) {
 		assert(writeranks[prevwriter]<rank && writeranks[prevwriter]<np);
-		//sendrequest = MPI::COMM_WORLD.Isend(databuffer, datasizes[rank], MPI_CHAR, writeranks[prevwriter], rank);
 		MPI_Isend(databuffer, datasizes[rank], MPI_CHAR, writeranks[prevwriter], rank, MPI::COMM_WORLD, &sendrequest);
 	}
 	if (recvrequests != NULL)
 		MPI_Waitall(silentranks, recvrequests, recvstatuses);
-	//MPI::Request::Waitall(silentranks, recvrequests);
 	if (rank>0) MPI_Wait(&sendrequest, &status);
 	MPI::COMM_WORLD.Barrier();
 
@@ -258,6 +253,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#endif
 	if (!output) {
 		if (rank==0) std::cerr << "File output error: could not open " << filename << "." << std::endl;
+		if (rank==0) std::cerr << "                   If it already exists, delete it and try again." << std::endl;
 		exit(-1);
 	}
 	mpi_err = MPI_File_set_size(output, 0);
@@ -278,7 +274,6 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		assert(w<nwriters);
 		if (w==nwriters-1)
 			assert(filesize-aoffsets[w]==ws);
-		//output.Write_at(aoffsets[w], filebuffer, ws, MPI_CHAR);
 		writecycles = rdtsc();
 		mpi_err = MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
 		MPI_Wait(&request, &status);
@@ -400,7 +395,8 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	}
 	#endif
 	if (!output) {
-		std::cerr << "File output error: could not open " << filename << "." << std::endl;
+		if (subrank==0) std::cerr << "File output error: could not open " << filename << "." << std::endl;
+		if (subrank==0) std::cerr << "                   If it already exists, delete it and try again." << std::endl;
 		exit(-1);
 	}
 	mpi_err = MPI_File_set_size(output, 0);
@@ -504,7 +500,6 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	error++;
 	if (error!=1) std::cerr<<"  Error on Rank "<<rank<<": "<<MPI::Get_error_class(error-1)<<std::endl;
 	MPI_Allreduce(&error, &write_errors, 1, MPI_INT, MPI_SUM, subcomm);
-	//if (subrank==0) std::cout<<"  Write finished on "<<write_errors<<'/'<<subnp<<" ranks."<<std::endl;
 	assert(write_errors==subnp);
 	#endif
 	delete [] databuffer;

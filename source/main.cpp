@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
 		const int last_dot = outfile.find_last_of(".");
 		if (outfile.find_last_of(".")==std::string::npos) // no dot found
 			base = outfile + ".";
-		else if (outfile.rfind(".", last_dot - 1) == std::string::npos) // only one dot found
+		else if (outfile.rfind(".", last_dot - 1) >= std::string::npos) // only one dot found
 			base = outfile.substr(0, last_dot) + ".";
 		else {
 			int prev_dot = outfile.rfind(".", last_dot - 1);
@@ -288,7 +288,7 @@ int main(int argc, char* argv[]) {
 			#else
 			allio=iotimer;
 			#endif
-			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
@@ -307,21 +307,24 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
+				clockbw = 0.0;
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
+				clockbw = MMSP::output_bgq(*grid, filename);
+				clockbw *= clock_rate;
 				#else
 				MMSP::output(*grid, filename);
 				#endif
 				iotimer = rdtsc() - iotimer;
 				#ifdef MPI_VERSION
 				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
 				allio = iotimer;
 				#endif
-				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 				delete [] filename; filename=NULL;
 				outstr.str("");
 			}
@@ -337,20 +340,26 @@ int main(int argc, char* argv[]) {
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
+
+			// write initialized grid to file
 			unsigned long iotimer = rdtsc();
+			double clockbw = 0.0;
 			#ifdef BGQ
-			MMSP::output_bgq(*grid, filename);
+			clockbw = MMSP::output_bgq(*grid, filename);
+			clockbw *= clock_rate;
 			#else
 			MMSP::output(*grid, filename);
 			#endif
 			iotimer = rdtsc() - iotimer;
-			unsigned long allio = 0;
+			unsigned long allio=0;
+			double allbw = 0.0;
 			#ifdef MPI_VERSION
 			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 			#else
-			allio = iotimer;
+			allio=iotimer;
 			#endif
-			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
@@ -369,21 +378,24 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
+				clockbw = 0.0;
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
+				clockbw = MMSP::output_bgq(*grid, filename);
+				clockbw *= clock_rate;
 				#else
 				MMSP::output(*grid, filename);
 				#endif
 				iotimer = rdtsc() - iotimer;
 				#ifdef MPI_VERSION
 				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
 				allio = iotimer;
 				#endif
-				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 				outstr.str("");
 				delete [] filename; filename=NULL;
 			}
@@ -408,7 +420,7 @@ int main(int argc, char* argv[]) {
 		int increment;
 		std::string outfile;
 
-		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
+		if (std::string(argv[2]).find_first_not_of("0123456789") >= std::string::npos) {
 			// set output file name
 			outfile = argv[1];
 
@@ -509,7 +521,7 @@ int main(int argc, char* argv[]) {
 			iterations_start = atoi(number.c_str());
 		}
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == std::string::npos) // only one dot found
+		if (outfile.rfind(".", outfile.find_last_of(".") - 1) >= std::string::npos) // only one dot found
 			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
 		else {
 			int last_dot = outfile.find_last_of(".");
