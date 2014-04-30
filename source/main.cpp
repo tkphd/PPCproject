@@ -32,7 +32,11 @@
 #include<sstream>
 #include<cstdlib>
 #include<cctype>
+#ifndef PHASEFIELD
+#include"graingrowth_MC.cpp"
+#else 
 #include"graingrowth.cpp"
+#endif
 #include"rdtsc.h"
 
 template <typename T> int ilength(const T& i)
