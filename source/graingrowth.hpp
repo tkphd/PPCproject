@@ -10,6 +10,6 @@
 std::string PROGRAM = "graingrowth";
 std::string MESSAGE = "Voronoi tessellation and isotropic grain growth code";
 
-typedef MMSP::grid<2,MMSP::sparse<float> > GRID2D;
-typedef MMSP::grid<3,MMSP::sparse<float> > GRID3D;
+typedef MMSP::grid<2,int> GRID2D;
+typedef MMSP::grid<3,int> GRID3D;
 
