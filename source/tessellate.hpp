@@ -239,7 +239,7 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
-		int min_identity;
+		int min_identity=-1;
 
 		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
 			int identity=-1;

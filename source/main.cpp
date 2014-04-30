@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
 		const int last_dot = outfile.find_last_of(".");
 		if (outfile.find_last_of(".")==std::string::npos) // no dot found
 			base = outfile + ".";
-		else if (outfile.rfind(".", last_dot - 1) >= std::string::npos) // only one dot found
+		else if (outfile.rfind(".", last_dot - 1) == -1) // only one dot found
 			base = outfile.substr(0, last_dot) + ".";
 		else {
 			int prev_dot = outfile.rfind(".", last_dot - 1);
@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
 		int increment;
 		std::string outfile;
 
-		if (std::string(argv[2]).find_first_not_of("0123456789") >= std::string::npos) {
+		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
 			// set output file name
 			outfile = argv[1];
 
@@ -525,7 +525,7 @@ int main(int argc, char* argv[]) {
 			iterations_start = atoi(number.c_str());
 		}
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) >= std::string::npos) // only one dot found
+		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
 			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
 		else {
 			int last_dot = outfile.find_last_of(".");
