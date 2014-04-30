@@ -4,9 +4,9 @@
 
 #ifdef MPI_VERSION
 
-#include"MMSP.grid.hpp"
 #include<cmath>
 #include<sstream>
+#include"MMSP.grid.hpp"
 
 namespace MMSP
 {
@@ -21,6 +21,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	const unsigned int np = MPI::COMM_WORLD.Get_size();
 	MPI_Request request;
 	MPI_Status status;
+	int mpi_err = 0;
 
 	// Read filesystem block size (using statvfs). Default to 4096 B.
 	struct statvfs buf;
@@ -28,25 +29,6 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#ifdef DEBUG
 	if (rank==0) std::cout<<"Block size is "<<blocksize<<" B."<<std::endl;
 	#endif
-
-	// file open error check
-	//MPI::File output = MPI::File::Open(MPI::COMM_WORLD, filename, MPI::MODE_CREATE | MPI::MODE_WRONLY, MPI::INFO_NULL);
-	MPI_Info info;
-	#ifdef BGQ
-	MPI_Info_create(&info);
-	//char key[17] = {'I','B','M','_','l','a','r','g','e','b','l','o','c','k','_','i','o'};
-	//char value[4] = {'t','r','u','e'};
-	MPI_Info_set(info, "IBM_largeblock_io", "true");
-	#else
-	info = MPI::INFO_NULL;
-	#endif
-	MPI_File output;
-	MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
-	if (!output) {
-		if (rank==0) std::cerr << "File output error: could not open " << filename << "." << std::endl;
-		exit(-1);
-	}
-	MPI_File_set_size(output, 0);
 
 	// create buffer pointers
 	unsigned long* datasizes = NULL;
@@ -131,7 +113,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	aoffsets = new unsigned long[nwriters];
 	writeranks[nwriters]=np-1; // generalization for last writer's benefit
 	for (unsigned int w=0; w<nwriters; w++) {
-		static unsigned int i=0;
+		static unsigned int i=0; // Why is this necessary?
 		unsigned long ws=(w<=excessblocks)?writesize+blocksize:writesize;
 		// file offset of the w^th writer
 		aoffsets[w]=(w>0)?ws+aoffsets[w-1]:0;
@@ -141,6 +123,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		if (rank==i)
 			isWriter=true;
 		i++;
+		if (w==nwriters-1) i=0;
 	}
 
 	// Determine which rank to send data to
@@ -254,6 +237,38 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (rank>0) MPI_Wait(&sendrequest, &status);
 	MPI::COMM_WORLD.Barrier();
 
+	// file open error check
+	MPI_Info info;
+	#ifdef BGQ
+	MPI_Info_create(&info);
+	MPI_Info_set(info, "IBM_largeblock_io", "true");
+	#else
+	info = MPI::INFO_NULL;
+	#endif
+	MPI_File output;
+	mpi_err = MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
+	#ifdef DEBUG
+	if (mpi_err != MPI_SUCCESS) {
+		char error_string[256];
+		int length_of_error_string=256;
+		MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+		fprintf(stderr, "%3d: %s\n", rank, error_string);
+	}
+	#endif
+	if (!output) {
+		if (rank==0) std::cerr << "File output error: could not open " << filename << "." << std::endl;
+		exit(-1);
+	}
+	mpi_err = MPI_File_set_size(output, 0);
+	#ifdef DEBUG
+	if (mpi_err != MPI_SUCCESS) {
+		char error_string[256];
+		int length_of_error_string=256;
+		MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+		fprintf(stderr, "%3d: %s\n", rank, error_string);
+	}
+	#endif
+
 	// Write to disk
 	if (filebuffer!=NULL) {
 		unsigned int w=0;
@@ -262,8 +277,16 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		if (w==nwriters-1)
 			assert(filesize-aoffsets[w]==ws);
 		//output.Write_at(aoffsets[w], filebuffer, ws, MPI_CHAR);
-		MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
+		mpi_err = MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
 		MPI_Wait(&request, &status);
+		#ifdef DEBUG
+		if (mpi_err != MPI_SUCCESS) {
+			char error_string[256];
+			int length_of_error_string=256;
+			MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+			fprintf(stderr, "%3d: %s\n", rank, error_string);
+		}
+		#endif
 	}
 
 	MPI::COMM_WORLD.Barrier();
@@ -308,6 +331,7 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 		if (rank==0) std::cerr<<"Error in output_split: "<<nfiles<<" specified; should use output_bgq for this case."<<std::endl;
 		exit(-1);
 	}
+	int mpi_err = 0;
 
 	// Set local filename and sub-communicator
 	const int ranks_per_file = np/nfiles;
@@ -317,18 +341,31 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	std::string subfile(filename);
 	if (file_number>0) {
 		// File 0 contains the global header, and uses the fed-in filename
-		subfile = subfile.substr(0,subfile.find_last_of("."));
+		if (subfile.find_last_of(".") != std::string::npos) {
+			subfile = subfile.substr(0,subfile.find_last_of("."))+".";
+		}
 		std::stringstream nstr;
 		nstr << file_number;
 		subfile = subfile + "r" + nstr.str();
 	}
 	char* subfilename = new char[subfile.length()];
-	for (int i=0; i<subfile.length(); i++) subfilename[i]=subfile[i];
+	for (int i=0; i<subfile.length(); i++)
+		subfilename[i]=subfile[i];
 
-	MPI_Comm subcomm = MPI_COMM_NULL;
-	MPI_Comm_split(MPI::COMM_WORLD, file_number, rank, &subcomm);
-	MPI_Comm_rank(subcomm, &subrank);
-	MPI_Comm_size(subcomm, &subnp);
+	MPI_Comm subcomm = MPI_COMM_WORLD;
+	if (nfiles>1) {
+		mpi_err = MPI_Comm_split(MPI::COMM_WORLD, file_number, rank, &subcomm);
+		#ifdef DEBUG
+		if (mpi_err != MPI_SUCCESS) {
+			char error_string[256];
+			int length_of_error_string=256;
+			MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+			fprintf(stderr, "%3d: %s\n", rank, error_string);
+		}
+		#endif
+		MPI_Comm_rank(subcomm, &subrank);
+		MPI_Comm_size(subcomm, &subnp);
+	}
 
 	// file open error check
 	MPI_Info info;
@@ -341,19 +378,38 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	info = MPI::INFO_NULL;
 	#endif
 	MPI_File output;
-	MPI_File_open(MPI::COMM_WORLD, subfilename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
+	mpi_err = MPI_File_open(MPI::COMM_WORLD, subfilename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
+	#ifdef DEBUG
+	if (mpi_err != MPI_SUCCESS) {
+		char error_string[256];
+		int length_of_error_string=256;
+		MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+		fprintf(stderr, "%3d: %s\n", rank, error_string);
+	}
+	#endif
 	if (!output) {
 		std::cerr << "File output error: could not open " << filename << "." << std::endl;
 		exit(-1);
 	}
-	MPI_File_set_size(output, 0);
+	mpi_err = MPI_File_set_size(output, 0);
+	#ifdef DEBUG
+	if (mpi_err != MPI_SUCCESS) {
+		char error_string[256];
+		int length_of_error_string=256;
+		MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+		fprintf(stderr, "%3d: %s\n", rank, error_string);
+	}
+	#endif
 
 	MPI_Request request;
 	MPI_Status status;
 
+	char* databuffer=NULL;
+
 	// Generate global header
 	unsigned long header_offset=0;
-	if (rank == 0) {
+	char* headbuffer=NULL;
+	if (rank==0) {
 		// get grid data type
 		std::string type = name(GRID);
 
@@ -367,26 +423,33 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 
 		// Write MMSP header to file
 		header_offset=outstr.str().size();
-		char* header = new char[header_offset];
-		for (unsigned int i=0; i<header_offset; i++)
-			header[i] = outstr.str()[i];
-		MPI_File_sync(output);
-		MPI_File_iwrite_at(output,0,header, header_offset, MPI_CHAR, &request);
-		MPI_Wait(&request, &status);
-		MPI_File_sync(output);
-		MPI_File_iwrite_at(output,header_offset,reinterpret_cast<char*>(&np), sizeof(np), MPI_CHAR, &request);
-		MPI_Wait(&request, &status);
-		MPI_File_sync(output);
-		header_offset+=sizeof(np);
-		delete [] header;
+		headbuffer = new char[header_offset+sizeof(rank)];
+		memcpy(headbuffer, outstr.str().c_str(), header_offset);
+		memcpy(headbuffer+header_offset, reinterpret_cast<const char*>(&np), sizeof(np));
+		header_offset+=sizeof(rank);
 	}
 	MPI_Barrier(subcomm);
-	MPI_File_sync(output);
 	MPI_Bcast(&header_offset, 1, MPI_UNSIGNED_LONG, 0, subcomm); // broadcast header size from subrank 0; zero in most cases
+	#ifdef DEBUG
+	if (rank==0) std::cout<<"Prepared file header."<<std::endl;
+	#endif
+	MPI::COMM_WORLD.Barrier();
 
 	// get grid data to write
-	char* databuffer=NULL;
-	const unsigned long size=write_buffer(GRID, databuffer);
+	unsigned long size=write_buffer(GRID, databuffer);
+	assert(databuffer!=NULL);
+	if (rank==0) {
+		// Rank 0 holds the global header -- needs to be the first thing written!
+		unsigned long* fullbuffer = new unsigned long[size+header_offset];
+		memcpy(fullbuffer, headbuffer, header_offset);
+		memcpy(fullbuffer+header_offset, databuffer, size);
+		delete [] databuffer;
+		databuffer = fullbuffer;
+		fullbuffer=NULL;
+		delete [] headbuffer;
+		headbuffer=NULL;
+		size+=header_offset;
+	}
 	assert(databuffer!=NULL);
 
 	// Compute file offsets based on buffer sizes
@@ -400,7 +463,7 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	MPI_Barrier(subcomm);
 
 	unsigned long* offsets = new unsigned long[subnp];
-	offsets[0]=header_offset;
+	offsets[0]=0;
 	for (int n=1; n<subnp; ++n) {
 		assert(datasizes[n] < static_cast<unsigned long>(std::numeric_limits<int>::max()));
 		offsets[n]=offsets[n-1]+datasizes[n-1];
@@ -413,8 +476,16 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	// Write buffer to disk
 	MPI_File_sync(output);
 	MPI_Barrier(subcomm);
-	MPI_File_iwrite_at(output, offsets[subrank], databuffer, datasizes[subrank], MPI_CHAR, &request);
+	mpi_err = MPI_File_iwrite_at(output, offsets[subrank], databuffer, datasizes[subrank], MPI_CHAR, &request);
 	MPI_Wait(&request, &status);
+	#ifdef DEBUG
+	if (mpi_err != MPI_SUCCESS) {
+		char error_string[256];
+		int length_of_error_string=256;
+		MPI_Error_string(mpi_err, error_string, &length_of_error_string);
+		fprintf(stderr, "%3d: %s\n", rank, error_string);
+	}
+	#endif
 	#ifdef DEBUG
 	int error, write_errors=0;
 	MPI_Get_count(&status, MPI_INT, &error);
