@@ -97,7 +97,6 @@ void generate(int dim, char* filename, int seeds=0) {
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
-	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 	if (dim == 2) {
 		MMSP::grid<2,MMSP::sparse<float> >* grid2=generate<2>(seeds);
@@ -120,7 +119,6 @@ void generate(int dim, char* filename, int seeds=0) {
 		#endif
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
 	}
-
 }
 
 template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps) {

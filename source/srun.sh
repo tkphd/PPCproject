@@ -16,6 +16,6 @@
 #SBATCH --overcommit
 #SBATCH -o /gpfs/u/barn/GGST/GGSTkllt/project/proj_64_2048.log
 
-srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --init 3 voronoi.0000.dat
-srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out voronoi.0000.dat 1500 50
-# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --nonstop 3 voronoi.0000.dat 1500 50
+# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --init 3 voronoi.0000.dat
+# srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out voronoi.0000.dat 1500 50
+srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_GG.out --nonstop 3 voronoi.0000.dat 1500 50

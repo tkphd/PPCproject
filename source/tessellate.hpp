@@ -151,7 +151,7 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
-		int min_identity;
+		int min_identity=-1;
 
 		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
 			int identity=-1;
@@ -340,7 +340,7 @@ int seeds_to_buffer(const std::vector<Point<int> >& vp, int* &q)
     exit(1);
   }
   int* p = q;
-  for (int i = 0; i < vp.size(); ++i) {
+  for (unsigned int i = 0; i < vp.size(); ++i) {
     size += 3;
     *p = vp[i].x;
     ++p;

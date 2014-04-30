@@ -6,13 +6,14 @@
 
 #include<cmath>
 #include<sstream>
+#include"rdtsc.h"
 #include"MMSP.grid.hpp"
 
 namespace MMSP
 {
 
 template <int dim,typename T>
-void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
+double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 {
 	/* MPI-IO to the filesystem with writes aligned to blocks */
 
@@ -59,7 +60,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		for (int i=0; i<dim; i++) outstr << MMSP::g0(GRID,i) << " " << MMSP::g1(GRID,i) << '\n'; // global grid dimensions
 		for (int i=0; i<dim; i++) outstr << MMSP::dx(GRID,i) << '\n'; // grid spacing
 
-		// Write MMSP header to file
+		// Write MMSP header to buffer
 		header_offset=outstr.str().size();
 		headbuffer = new char[header_offset+sizeof(rank)];
 		memcpy(headbuffer, outstr.str().c_str(), header_offset);
@@ -270,6 +271,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#endif
 
 	// Write to disk
+	unsigned long writecycles = 0;
 	if (filebuffer!=NULL) {
 		unsigned int w=0;
 		while (writeranks[w]!=rank) ++w;
@@ -277,6 +279,7 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		if (w==nwriters-1)
 			assert(filesize-aoffsets[w]==ws);
 		//output.Write_at(aoffsets[w], filebuffer, ws, MPI_CHAR);
+		writecycles = rdtsc();
 		mpi_err = MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
 		MPI_Wait(&request, &status);
 		#ifdef DEBUG
@@ -287,10 +290,17 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 			fprintf(stderr, "%3d: %s\n", rank, error_string);
 		}
 		#endif
+		writecycles = rdtsc() - writecycles;
 	}
 
+	unsigned long allcycles = 0;
+	MPI_Allreduce(&writecycles, &allcycles, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI::COMM_WORLD);
+	allcycles /= nwriters;
+	assert(allcycles>0);
+
 	MPI::COMM_WORLD.Barrier();
-	//output.Close();
+	MPI_Offset off;
+	MPI_File_get_size(output, &off);
 	MPI_File_close(&output);
 	if (recvrequests!=NULL) {
 		delete [] recvrequests;
@@ -314,6 +324,8 @@ void output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		delete [] filebuffer;
 		filebuffer=NULL;
 	}
+
+	return double(off)/allcycles; // bytes per cycle -- needs clock rate info
 }
 
 template <int dim,typename T>
