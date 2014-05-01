@@ -362,7 +362,7 @@ int main(int argc, char* argv[])
 	input.close();
 	output.close();
 
-	std::cout<<"\nEndianness of "<<argv[1]<<" successfully inverted.\n"<<std::endl;
+	std::cout<<"Endianness of "<<argv[1]<<" successfully inverted."<<std::endl;
 
 	#if defined(TIMING) || defined(DEBUG)
 	printf("%2.2e sec. reading data.\n", readtimer/clock_rate);
@@ -506,6 +506,10 @@ void* swap_block_kernel(void* x)
 					memcpy(&nfloats, reinterpret_cast<int*>(q), 1);
 					q+=sizeof(int);
 					for (int j=0; j<nfloats; j++) {
+						// MMSP::sparse::to_buffer copies n * item<T>;
+						// each item contains one int and one T
+						swap_buffer<int>(reinterpret_cast<int*>(q), 1);
+						q+=sizeof(int);
 						swap_buffer<float>(reinterpret_cast<float*>(q), 1);
 						q+=sizeof(float);
 					}
