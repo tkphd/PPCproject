@@ -233,9 +233,10 @@ void generate(int dim, char* filename, int seeds=0) {
     pthread_attr_init (&attr); 
     
     //check if num of the pthread is too large, if so, reduce it.
-    if((x1(grid, 0)-x0(grid, 0)-nthreads-1)/nthreads<1)
+    if((x1(grid, 0)-x0(grid, 0)-nthreads-1)/nthreads<1){
       std::cout<<"number of pthread is too large, please reduce it to a value <= "<<x1(grid, 0)-x0(grid, 0)-nthreads-1<<std::endl;
-
+      exit(0);
+    }
     for (int step=0; step<steps; step++) {
       for(int sublattice=0; sublattice!= 2; sublattice++){
 
