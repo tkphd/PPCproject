@@ -32,10 +32,10 @@
 #include<sstream>
 #include<cstdlib>
 #include<cctype>
-#ifdef PHASEFIELD
-#include"graingrowth.cpp"
-#else
+#ifndef PHASEFIELD
 #include"graingrowth_MC.cpp"
+#else 
+#include"graingrowth.cpp"
 #endif
 #include"rdtsc.h"
 
@@ -47,8 +47,8 @@ template <typename T> int ilength(const T& i)
 }
 
 int main(int argc, char* argv[]) {
-	MMSP::Init(argc, argv);
 
+	MMSP::Init(argc, argv);
 
 	// check argument list
 	if (argc < 2) {
@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
+        int nthreads = 0;
 	unsigned int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
@@ -79,8 +80,7 @@ int main(int argc, char* argv[]) {
 	clock_rate*=1000.0;
 	#endif
 
-
-	// print help message and exit
+  	// print help message and exit
 	if (std::string(argv[1]) == std::string("--help")) {
 		std::cout << PROGRAM << ": " << MESSAGE << "\n\n";
 		std::cout << "Valid command lines have the form:\n";
@@ -122,11 +122,12 @@ int main(int argc, char* argv[]) {
 		std::cout << "The grid is then written to a file every 100 time steps.\n";
 		std::cout << "The resulting files are named \n\"polycrystal.1100.dat\", \"polycrystal.1200.dat\", ... \"polycrystal.2000.dat\".\n";
 		std::cout << std::endl;
-		std::cout << "    " << PROGRAM << " --nonstop 3 polycrystal.0000.dat 1000 100\n";
+		std::cout << "    " << PROGRAM << " --nonstop 3 polycrystal.0000.dat 1000 100 2\n";
 		std::cout << "generates the Voronoi tessellation on a grid of dimension 3 and writes it to the\n";
 		std::cout << "file named \"polycrystal.0000.dat\", then runs a simulation for 1000 time steps.\n";
 		std::cout << "The grid is then written to a file every 100 time steps.\n";
 		std::cout << "The resulting files are named \n\"polycrystal.0100.dat\", \"polycrystal.0200.dat\", ... \"polycrystal.1000.dat\".\n";
+		std::cout << "number of pthreads is 2\n";
 		std::cout << std::endl;
 		exit(0);
 	}
@@ -179,7 +180,7 @@ int main(int argc, char* argv[]) {
 	// run tessellation & simulation
 	else if (std::string(argv[1]) == std::string("--nonstop")) {
 		// bad argument list
-		if (argc!=6) {
+		if (argc!=7) {
 			std::cout << PROGRAM << ": bad argument list.  Use\n\n";
 			std::cout << "    " << PROGRAM << " --help\n\n";
 			std::cout << "to generate help message.\n\n";
@@ -233,13 +234,15 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 
-		// set output file basename
+                nthreads = atoi(argv[6]);
+
+    		// set output file basename
 		int iterations_start = 0;
 		std::string base;
 		const int last_dot = outfile.find_last_of(".");
 		if (outfile.find_last_of(".")==std::string::npos) // no dot found
 			base = outfile + ".";
-		else if (outfile.rfind(".", last_dot - 1) == -1) // only one dot found
+		else if (outfile.rfind(".", last_dot - 1) == std::string::npos) // only one dot found
 			base = outfile.substr(0, last_dot) + ".";
 		else {
 			int prev_dot = outfile.rfind(".", last_dot - 1);
@@ -254,7 +257,7 @@ int main(int argc, char* argv[]) {
 		#ifdef DEBUG
 		if (rank==0) std::cout<<"Filename base is "<<base<<std::endl;
 		#endif
-
+      
 		// set output file suffix
 		std::string suffix = "";
 		if (outfile.find_last_of(".") != std::string::npos)
@@ -292,12 +295,13 @@ int main(int argc, char* argv[]) {
 			#else
 			allio=iotimer;
 			#endif
-			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment);
+
+			        MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -311,24 +315,21 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
-				clockbw = 0.0;
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				#ifdef BGQ
-				clockbw = MMSP::output_bgq(*grid, filename);
-				clockbw *= clock_rate;
+				MMSP::output_bgq(*grid, filename);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
 				iotimer = rdtsc() - iotimer;
 				#ifdef MPI_VERSION
 				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
-				MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
 				allio = iotimer;
 				#endif
-				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 				delete [] filename; filename=NULL;
 				outstr.str("");
 			}
@@ -344,31 +345,26 @@ int main(int argc, char* argv[]) {
 			char* filename = new char[outfile.length()];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
-
-			// write initialized grid to file
 			unsigned long iotimer = rdtsc();
-			double clockbw = 0.0;
 			#ifdef BGQ
-			clockbw = MMSP::output_bgq(*grid, filename);
-			clockbw *= clock_rate;
+			MMSP::output_bgq(*grid, filename);
 			#else
 			MMSP::output(*grid, filename);
 			#endif
 			iotimer = rdtsc() - iotimer;
-			unsigned long allio=0;
-			double allbw = 0.0;
+			unsigned long allio = 0;
 			#ifdef MPI_VERSION
 			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
-			MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 			#else
-			allio=iotimer;
+			allio = iotimer;
 			#endif
-			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 			delete [] filename; filename=NULL;
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment);
+
+			        MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -382,24 +378,21 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
-				clockbw = 0.0;
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				#ifdef BGQ
-				clockbw = MMSP::output_bgq(*grid, filename);
-				clockbw *= clock_rate;
+				MMSP::output_bgq(*grid, filename);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
 				iotimer = rdtsc() - iotimer;
 				#ifdef MPI_VERSION
 				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
-				MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
 				allio = iotimer;
 				#endif
-				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MPI Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 				outstr.str("");
 				delete [] filename; filename=NULL;
 			}
@@ -525,7 +518,7 @@ int main(int argc, char* argv[]) {
 			iterations_start = atoi(number.c_str());
 		}
 		std::string base;
-		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == -1) // only one dot found
+		if (outfile.rfind(".", outfile.find_last_of(".") - 1) == std::string::npos) // only one dot found
 			base = outfile.substr(0, outfile.find_last_of(".")) + ".";
 		else {
 			int last_dot = outfile.find_last_of(".");
@@ -554,7 +547,8 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(grid, increment);
+
+ 			        MMSP::update(grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -586,7 +580,8 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(grid, increment);
+
+			        MMSP::update(grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
