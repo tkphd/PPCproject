@@ -617,3 +617,7 @@ int main(int argc, char* argv[]) {
 }
 
 #endif
+
+// Formatted using astyle:
+//  astyle --style=linux --indent-col1-comments --indent=tab --indent-preprocessor --pad-header --align-pointer=type --keep-one-line-blocks --suffix=none
+

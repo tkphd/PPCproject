@@ -263,3 +263,6 @@ void print_progress(const int step, const int steps, const int iterations) {
 #endif
 
 #include"MMSP.main.hpp"
+
+// Formatted using astyle:
+//	astyle --style=linux --indent-col1-comments --indent=tab --indent-preprocessor --pad-header --align-pointer=type --keep-one-line-blocks --suffix=none
