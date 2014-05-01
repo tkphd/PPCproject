@@ -22,7 +22,9 @@ void print_progress(const int step, const int steps, const int iterations);
 
 namespace MMSP {
 
-void generate(int dim, char* filename, int seeds=0) {
+template <int dim>
+MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds=0)
+{
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
@@ -39,9 +41,9 @@ void generate(int dim, char* filename, int seeds=0) {
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<2,MMSP::sparse<float> > grid(0, 0, edge, 0, edge);
-		if (rank==0) std::cout<<"Grid origin: ("<<g0(grid,0)<<','<<g0(grid,1)<<"),"
-												<<" dimensions: "<<g1(grid,0)-g0(grid,0)<<" × "<<g1(grid,1)-g0(grid,1)
+		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0, 0, edge, 0, edge);
+		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<"),"
+												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)
 												<<" with "<<number_of_fields<<" grains."<<std::endl;
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
@@ -51,29 +53,22 @@ void generate(int dim, char* filename, int seeds=0) {
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<2,float>(grid, number_of_fields);
+		tessellate<dim,float>(*grid, number_of_fields);
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
-		#ifdef BGQ
-		output_bgq(grid, filename);
-		#else
-		output(grid, filename);
-		#endif
-		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
-	}
-
-	if (dim == 3) {
+		return grid;
+	} else if (dim == 3) {
 		const int edge = 512;
 		int number_of_fields(seeds);
 		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge*edge)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<3,MMSP::sparse<float> > grid(0,0,edge,0,edge,0,edge);
-		if (rank==0) std::cout<<"Grid origin: ("<<g0(grid,0)<<','<<g0(grid,1)<<','<<g0(grid,2)<<"),"
-												<<" dimensions: "<<g1(grid,0)-g0(grid,0)<<" × "<<g1(grid,1)-g0(grid,1)<<" × "<<g1(grid,2)-g0(grid,2)
+		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0,0,edge,0,edge,0,edge);
+		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<','<<g0(*grid,2)<<"),"
+												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)<<" × "<<g1(*grid,2)-g0(*grid,2)
 												<<" with "<<number_of_fields<<" grains."<<std::endl;
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
@@ -83,18 +78,47 @@ void generate(int dim, char* filename, int seeds=0) {
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<3,float>(grid, number_of_fields);
+		tessellate<dim,float>(*grid, number_of_fields);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
+		return grid;
+	}
+	return NULL;
+}
+
+
+void generate(int dim, char* filename, int seeds=0) {
+	#if (defined CCNI) && (!defined MPI_VERSION)
+	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
+	exit(1);
+	#endif
+	int rank=0;
+	#ifdef MPI_VERSION
+	rank = MPI::COMM_WORLD.Get_rank();
+	#endif
+	if (dim == 2) {
+		MMSP::grid<2,MMSP::sparse<float> >* grid2=generate<2>(seeds);
+		assert(grid2!=NULL);
 		#ifdef BGQ
-		output_bgq(grid, filename);
+		output_bgq(*grid2, filename);
 		#else
-		output(grid, filename);
+		output(*grid2, filename);
 		#endif
+		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
 	}
 
+	if (dim == 3) {
+		MMSP::grid<3,MMSP::sparse<float> >* grid3=generate<3>(seeds);
+		assert(grid3!=NULL);
+		#ifdef BGQ
+		output_bgq(*grid3, filename);
+		#else
+		output(*grid3, filename);
+		#endif
+		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
+	}
 }
 
 template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps) {
@@ -195,8 +219,8 @@ template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps)
 				}
 			}
 		} // Loop over nodes(grid)
-		swap(grid, update);
 		if (rank==0) print_progress(step+1, steps, iterations);
+		swap(grid, update);
 	} // Loop over steps
 	ghostswap(grid);
 	++iterations;

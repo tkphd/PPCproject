@@ -12,15 +12,18 @@ BG_INC = -I$(BG_PATH)/include
 BG_LIB = -L$(BG_PATH)/lib
 
 # compilers/flags
-compiler = g++ -O3
-pcompiler = mpic++ -O3
+compiler = g++ -O3 -Wall
+pcompiler = mpic++ -O3 -Wall
 flags = -I$(incdir) -I$(algodir) -I$(algodir)/topology
 
 # RPI CCI AMOS compilers/flags
 #qcompiler = mpic++ -g -qarch=qp -qtune=qp -qflag=w -qstrict -qreport
-qcompiler = mpic++ -O2 -qarch=qp -qtune=qp -qflag=w -qstrict -qhot=fastmath
+qcompiler = mpic++ -O3 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qhot=fastmath
 #qcompiler = mpic++ -O5 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qsimd=auto -qhot=fastmath -qinline=level=10
 qflags = $(CFLAGS) $(BG_INC) $(BG_LIB) $(LDFLAGS) $(flags)
+
+# ONLY uncomment the following if experimental/zlib is NOT available!!!
+#qflags = $(BG_INC) $(BG_LIB) $(flags) -I/bgsys/apps/CCNI/zlib/zlib-1.2.7/include -L/bgsys/apps/CCNI/zlib/zlib-1.2.7/lib
 
 # dependencies
 core = $(incdir)/MMSP.utility.hpp \
@@ -32,10 +35,13 @@ graingrowth.out: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(compiler) $(flags) $< -o $@ -lz
 
 parallel: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(pcompiler) $(flags) -include mpi.h $< -o parallel_GG.out -lz
+	$(pcompiler) -DDEBUG $(flags) -include mpi.h $< -o parallel_GG.out -lz
+
+bgqmc: main.cpp graingrowth.cpp tessellate.hpp $(core)
+	$(qcompiler) $(qflags) -DBGQ $< -o q_MC.out -lz
 
 bgq: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(qcompiler) $(qflags) -DBGQ $< -o q_GG.out -lz
+	$(qcompiler) $(qflags) -DBGQ -DPHASEFIELD $< -o q_GG.out -lz
 
 wrongendian: wrongendian.cpp
 	$(compiler) $< -o $@.out -lz -pthread

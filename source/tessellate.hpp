@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <set>
 #include <cmath>
 #include <ctime>
 #include <limits>
@@ -97,13 +98,65 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
   int id=MPI::COMM_WORLD.Get_rank();
   int np=MPI::COMM_WORLD.Get_size();
 
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid, d));
+		neighbors.insert(N1(grid, d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
+
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
-		int min_identity;
+		int min_identity=-1;
 
-		int identity=-1;
-		for (unsigned int rank=0; rank<seeds.size(); ++rank) {
+		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+			int identity=-1;
+			unsigned int rank=*i;
+			for (unsigned int j=0; j<rank; j++) identity+=seeds[j].size();
 			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
 				++identity;
 				Point<int> seed=seeds[rank][s];
@@ -123,6 +176,94 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 			}
 		}
 		set(grid(n), min_identity) = 1.;
+	}
+} // exact_voronoi
+
+template<int dim, typename T>
+void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+{
+  // Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
+  int id=MPI::COMM_WORLD.Get_rank();
+  int np=MPI::COMM_WORLD.Get_size();
+
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid, d));
+		neighbors.insert(N1(grid, d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
+
+	for (unsigned long n=0; n<nodes(grid); ++n) {
+		const MMSP::vector<int> x=position(grid,n);
+		double min_distance=std::numeric_limits<double>::max();
+		int min_identity=-1;
+
+		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+			int identity=-1;
+			unsigned int rank=*i;
+			for (unsigned int j=0; j<rank; j++) identity+=seeds[j].size();
+			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
+				++identity;
+				Point<int> seed=seeds[rank][s];
+				double distance=radius<dim,int>(x,seed);
+				if (distance<min_distance) {
+					min_distance=distance;
+					min_identity=identity;
+				}
+				// Check coordinates across periodic boundary
+				for (int d=0; d<dim; d++) check_boundary(seed[d], x0(grid,d), x1(grid,d), b0(grid,d), b1(grid,d));
+				if (seed==seeds[rank][s]) continue;
+				distance=radius<dim,int>(x,seed);
+				if (distance<min_distance) {
+					min_distance=distance;
+					min_identity=identity;
+				}
+			}
+		}
+		grid(n) = reinterpret_cast<T>(min_identity);
 	}
 } // exact_voronoi
 #endif
@@ -199,7 +340,7 @@ int seeds_to_buffer(const std::vector<Point<int> >& vp, int* &q)
     exit(1);
   }
   int* p = q;
-  for (int i = 0; i < vp.size(); ++i) {
+  for (unsigned int i = 0; i < vp.size(); ++i) {
     size += 3;
     *p = vp[i].x;
     ++p;
@@ -341,7 +482,8 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
     }
 
     // Copy result from distance_grid to phase-field grid
-    for (int i = 0; i < nodes(distance_grid); ++i) set(grid(i), (distance_grid(i)).getID()) = 1.;
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	MMSP::set(grid(i),distance_grid(i).getID()) = 1.;
   } else if (dim == 3) {
     int min[3];
     int max[3];
@@ -451,7 +593,8 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
     }
 
     // Copy result from distance_grid to phase-field grid
-    for (int i = 0; i < nodes(distance_grid); ++i) set(grid(i), (distance_grid(i)).getID()) = 1.;
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	MMSP::set(grid(i),distance_grid(i).getID()) = 1.;
   }
   else
   {
@@ -460,9 +603,248 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
   }
 } // approximate_voronoi
 
+template<int dim, typename T>
+void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+{
+  // Implements a fast marching algorithm to generate the distance map
+  // Based on code written by Barb Cutler, RPI Comp. Sci. Dept., for CSCI-1200.
+  int id = 0;
+	#ifdef MPI_VERSION
+  id = MPI::COMM_WORLD.Get_rank();
+  int np = MPI::COMM_WORLD.Get_size();
+	#endif
+  // Perform the tessellation, using fast-marching fanciness
+  if (dim == 2) {
+    int min[2];
+    int max[2];
+    for (int i = 0; i < dim; ++i) {
+      min[i] = x0(grid, i);
+      max[i] = x1(grid, i);
+    }
+    // Constructor requires global limits of the grid. Magical!
+    MMSP::grid<2, DistanceVoxel> distance_grid(1, g0(grid, 0), g1(grid, 0), g0(grid, 1), g1(grid, 1));
+    DistanceVoxel value;
+    value.setValue( std::numeric_limits<double>::max() );
+    value.setID( 0 );
+
+    // Initialize distance_grid with very-large distances
+    for (int i = 0; i < nodes(distance_grid); ++i) {
+      MMSP::vector<int> pos = grid.position(i);
+      for (int d = 0; d < dim; ++d) {
+        assert(pos[d] >= x0(distance_grid, d));
+        assert(pos[d] < x1(distance_grid, d));
+      }
+      value.setX( pos[0] );
+      value.setY( pos[1] );
+      value.setZ( pos[2] );
+      distance_grid(i) = value;
+    }
+
+    // create the voxel Heap
+    DistanceVoxel_PriorityQueue queue;
+
+    int nseeds = 0;
+    for ( int i = 0; i < id; ++i ) nseeds += seeds[i].size();
+
+    // Enqueue this node's seeds
+    for ( int i = 0; i < seeds[id].size(); ++i ) {
+      MMSP::vector<int> pos = getPosition<dim, int>(seeds[id][i]);
+      DistanceVoxel* p = &( distance_grid(pos) );
+      for (int j = 0; j < dim; ++j) assert((pos[j] < x1(grid, j)) && (pos[j] >= x0(grid, j)));
+      p->setValue( 0. );
+      p->setID( nseeds + i );
+      // Propagate distance from each seed to its neighbors. Start adding to the Heap.
+      propagate_distance( p, distance_grid, queue );
+    }
+
+    // Fast-march the local seeds
+    while( !queue.empty() ) {
+      const DistanceVoxel* p = queue.top();
+      queue.pop();
+      propagate_distance( p, distance_grid, queue );
+    }
+
+		#ifdef MPI_VERSION
+    // Copy ghost voxels from adjacent ranks
+    ghostswap(distance_grid);
+
+    // Propagate ghost distances
+    int n0[3];
+    int n1[3];
+    for (int d = 0; d < dim; ++d) {
+      n0[d] = N0(grid, d); // Identify processor below in this dimension
+      n1[d] = N1(grid, d); // Identify processor above in this dimension
+      // Parallel boundary condition
+      if (n0[d] != id) {
+        // Ghosts from below
+        MMSP::vector<int> x = position(distance_grid, 0); // real point at lower corner
+        int scan_axis = (d == 0) ? 1 : 0;
+        for (x[scan_axis] = x0(grid, scan_axis); x[scan_axis] < x1(grid, scan_axis); ++x[scan_axis]) {
+          MMSP::vector<int> g = x;
+          --g[d]; // ghost point next to x
+          DistanceVoxel* px = &( distance_grid(x) );
+          DistanceVoxel* pg = &( distance_grid(g) );
+          double r = pg->getValue() + 1;
+          if (r < px->getValue() ) {
+            px->setValue( pg->getValue() + 1 );
+            px->setID( pg->getID() );
+            propagate_distance( px, distance_grid, queue );
+          }
+          ++x[scan_axis];
+        }
+      }
+      if (n1[d] != id) {
+        // Ghosts from above
+        MMSP::vector<int> x = position(distance_grid, nodes(distance_grid) - 1); // real point at top corner
+        int scan_axis = (d == 0) ? 1 : 0;
+        for (x[scan_axis] = x0(grid, scan_axis); x[scan_axis] < x1(grid, scan_axis); ++x[scan_axis]) {
+          MMSP::vector<int> g = x;
+          ++g[d]; // ghost point next to x
+          DistanceVoxel* px = &( distance_grid(x) );
+          DistanceVoxel* pg = &( distance_grid(g) );
+          double r = pg->getValue() + 1;
+          if (r < px->getValue() ) {
+            px->setValue( pg->getValue() + 1 );
+            px->setID( pg->getID() );
+            propagate_distance( px, distance_grid, queue );
+          }
+        }
+      }
+    }
+		#endif
+
+    // Fast-march the ghost points
+    while( !queue.empty() ) {
+      const DistanceVoxel* p = queue.top();
+      queue.pop();
+      propagate_distance( p, distance_grid, queue );
+    }
+
+    // Copy result from distance_grid to phase-field grid
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	grid(i) = distance_grid(i).getID();
+
+  } else if (dim == 3) {
+    int min[3];
+    int max[3];
+    for (int i = 0; i < dim; ++i) {
+      min[i] = x0(grid, i);
+      max[i] = x1(grid, i);
+    }
+    // Constructor requires global limits of the grid. Magical!
+    MMSP::grid<3, DistanceVoxel> distance_grid(1, g0(grid, 0), g1(grid, 0), g0(grid, 1), g1(grid, 1), g0(grid, 2), g1(grid, 2));
+    DistanceVoxel value;
+    value.setValue( std::numeric_limits<double>::max() );
+    value.setID( 0 );
+    for (int i = 0; i < nodes(distance_grid); ++i) {
+      MMSP::vector<int> pos = grid.position(i);
+      for (int d = 0; d < dim; ++d) {
+        assert(pos[d] >= x0(distance_grid, d));
+        assert(pos[d] < x1(distance_grid, d));
+      }
+      value.setX( pos[0] );
+      value.setY( pos[1] );
+      value.setZ( pos[2] );
+      distance_grid(i) = value;
+    }
+    // create the voxel Heap
+    DistanceVoxel_PriorityQueue queue;
+
+    int nseeds = 0;
+    for ( int i = 0; i < id; ++i ) nseeds += seeds[i].size();
+
+    // Start queue with this node's seeds
+    for ( int i = 0; i < seeds[id].size(); ++i ) {
+      MMSP::vector<int> pos = getPosition<dim, int>(seeds[id][i]);
+      DistanceVoxel* p = &( distance_grid(pos) );
+      for (int j = 0; j < dim; ++j) assert((pos[j] < x1(grid, j)) && (pos[j] >= x0(grid, j)));
+      p->setValue( 0. );
+      p->setID( nseeds + i );
+      // Propagate distance from each seed to its neighbors. Start adding to the Heap.
+      propagate_distance( p, distance_grid, queue );
+    }
+
+    // Fast-march the local seeds
+    while( !queue.empty() ) {
+      const DistanceVoxel* p = queue.top();
+      queue.pop();
+      propagate_distance( p, distance_grid, queue );
+    }
+
+		#ifdef MPI_VERSION
+    // Copy ghost voxels from adjacent ranks
+    ghostswap(distance_grid);
+
+    // Propagate ghost distances
+    int n0[3];
+    int n1[3];
+    for (int d = 0; d < dim; ++d) {
+      n0[d] = N0(grid, d); // Identify processor below in this dimension
+      n1[d] = N1(grid, d); // Identify processor above in this dimension
+      // Parallel boundary condition
+      if (n0[d] != id) {
+        // Ghosts from below
+        MMSP::vector<int> x = position(distance_grid, 0); // real point at lower corner
+        MMSP::vector<int> scan_axes(dim - 1, 0);
+        for (int e = 0; e < dim - 1; ++e) scan_axes[e] = (d == 0 || e == d) ? e + 1 : e;
+        for (x[scan_axes[0]] = x0(grid, scan_axes[0]); x[scan_axes[0]] < x1(grid, scan_axes[0]); ++x[scan_axes[0]]) {
+          for (x[scan_axes[1]] = x0(grid, scan_axes[1]); x[scan_axes[1]] < x1(grid, scan_axes[1]); ++x[scan_axes[1]]) {
+            MMSP::vector<int> g = x;
+            --g[d]; // ghost point next to x
+            DistanceVoxel* px = &( distance_grid(x) );
+            DistanceVoxel* pg = &( distance_grid(g) );
+            double r = pg->getValue() + 1;
+            if (r < px->getValue() ) {
+              px->setValue( pg->getValue() + 1 );
+              px->setID( pg->getID() );
+              propagate_distance( px, distance_grid, queue );
+            }
+          }
+        }
+      }
+      if (n1[d] != id) {
+        // Ghosts from above
+        MMSP::vector<int> x = position(distance_grid, 0); // real point at lower corner
+        MMSP::vector<int> scan_axes(dim - 1, 0);
+        for (int e = 0; e < dim - 1; ++e) scan_axes[e] = (d == 0 || e == d) ? e + 1 : e;
+        for (x[scan_axes[0]] = x0(grid, scan_axes[0]); x[scan_axes[0]] < x1(grid, scan_axes[0]); ++x[scan_axes[0]]) {
+          for (x[scan_axes[1]] = x0(grid, scan_axes[1]); x[scan_axes[1]] < x1(grid, scan_axes[1]); ++x[scan_axes[1]]) {
+            MMSP::vector<int> g = x;
+            ++g[d]; // ghost point next to x
+            DistanceVoxel* px = &( distance_grid(x) );
+            DistanceVoxel* pg = &( distance_grid(g) );
+            double r = pg->getValue() + 1;
+            if (r < px->getValue() ) {
+              px->setValue( pg->getValue() + 1 );
+              px->setID( pg->getID() );
+              propagate_distance( px, distance_grid, queue );
+            }
+          }
+        }
+      }
+    }
+		#endif
+
+    // Fast-march the ghost points
+    while( !queue.empty() ) {
+      const DistanceVoxel* p = queue.top();
+      queue.pop();
+      propagate_distance( p, distance_grid, queue );
+    }
+
+    // Copy result from distance_grid to phase-field grid
+    for (int i = 0; i < nodes(distance_grid); ++i)
+    	grid(i) = distance_grid(i).getID();
+
+  } else {
+    std::cerr << "Error: Invalid dimension (" << dim << ") in tessellation." << std::endl;
+    std::exit(1);
+  }
+} // approximate_voronoi
+
 
 template<int dim, typename T>
-void tessellate(MMSP::grid<dim, sparse<T> >& grid, const int& nseeds)
+void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds)
 {
   int id=0;
   int np=1;
@@ -504,11 +886,6 @@ void tessellate(MMSP::grid<dim, sparse<T> >& grid, const int& nseeds)
     int x = 0, y = 0, z = 0;
     //if (id == 0) seed_points << "x,y,z\n";
     for (int i = 0; i < nseeds; ++i) {
-    	#ifdef BGQ
-      x = g0(grid, 0) + pseudorand_number.randInt( g1(grid, 0) - g0(grid, 0) - 1 );
-      y = g0(grid, 1) + pseudorand_number.randInt( g1(grid, 1) - g0(grid, 1) - 1 );
-      z = g0(grid, 2) + pseudorand_number.randInt( g1(grid, 2) - g0(grid, 2) - 1 );
-    	#else
       x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
       y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
       z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
@@ -522,7 +899,118 @@ void tessellate(MMSP::grid<dim, sparse<T> >& grid, const int& nseeds)
         if (dupe) break; // stop scanning other seeds
       }
       if (dupe) continue; // don't add this seed
-      #endif
+      //#endif
+      local_seeds.push_back( Point<int>(x, y, z) );
+    }
+  } else {
+    std::cerr << "Error: Invalid dimension (" << dim << ") in tessellation." << std::endl;
+    std::exit(1);
+  }
+
+
+	#ifndef MPI_VERSION
+	seeds[id].insert(seeds[id].end(), local_seeds.begin(), local_seeds.end());
+	#else
+  // Exchange seeds between all processors
+  // Gather  of seeds per processor
+  int send_size=(local_seeds.size()) * (sizeof(Point<int>) / sizeof(int)); // number of integers
+  int* send_buffer = new int[send_size]; // number of integers: should be 3*seeds[id].size()
+  send_size = MMSP::seeds_to_buffer(local_seeds, send_buffer);
+	int* seed_sizes = new int[np];
+  MPI::COMM_WORLD.Barrier();
+	MPI::COMM_WORLD.Allgather(&send_size, 1, MPI_INT, seed_sizes, 1, MPI_INT);
+	int total_size=0;
+	for (unsigned int i=0; i<np; ++i) total_size+=seed_sizes[i];
+	int* offsets = new int[np];
+	offsets[0]=0;
+	for (unsigned int i=1; i<np; ++i) offsets[i]=seed_sizes[i-1]+offsets[i-1];
+	int* seed_block = new int[total_size];
+  MPI::COMM_WORLD.Barrier();
+	MPI::COMM_WORLD.Allgatherv(send_buffer, send_size, MPI_INT, seed_block, seed_sizes, offsets, MPI_INT);
+	delete [] send_buffer; send_buffer=NULL;
+
+	for (unsigned int i=0; i<np; ++i) {
+		int* p=seed_block+offsets[i];
+		MMSP::seeds_from_buffer(seeds[i], p, seed_sizes[i]);
+	}
+	delete [] seed_sizes; seed_sizes=NULL;
+	delete [] offsets; offsets=NULL;
+	delete [] seed_block; seed_block=NULL;
+  int vote=1;
+  int total_procs=0;
+  MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+  if (id==0) std::cout<<"Synchronized seeds on "<<total_procs<<" ranks."<<std::endl;
+	#endif
+
+  // Perform the actual tessellation
+	#ifndef MPI_VERSION
+	approximate_voronoi<dim,T>(grid, seeds);
+	#else
+  exact_voronoi<dim,T>(grid, seeds);
+	MPI::COMM_WORLD.Barrier();
+  total_procs=0;
+  MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+  if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
+	#endif
+} // tessellate
+
+template<int dim, typename T>
+void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds)
+{
+  int id=0;
+  int np=1;
+	#ifdef MPI_VERSION
+  id=MPI::COMM_WORLD.Get_rank();
+  np=MPI::COMM_WORLD.Get_size();
+	#endif
+  unsigned long int pseudorand_seed = time(NULL);
+  if (id == 0) std::cout << "Master seed is " << std::setw(10) << std::right << pseudorand_seed << ". <---- Record this value!" << std::endl;
+	#ifdef MPI_VERSION
+  pseudorand_seed = pseudorand_seed / (id + 1);
+	#endif
+  MTRand pseudorand_number( pseudorand_seed );
+  std::vector<Point<int> > local_seeds; // blank for now
+  std::vector<std::vector<Point<int> > > seeds;
+  while (seeds.size() <= np) seeds.push_back(local_seeds); // avoid a segfault
+
+  // Generate the seeds
+  if (dim == 2) {
+    int x = 0, y = 0;
+    //if (id == 0) seed_points << "x,y\n";
+    for (int i = 0; i < nseeds; ++i) {
+      x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
+      y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
+      bool dupe = false;
+      for (int j = 0; j < seeds[id].size(); ++j) {
+        // No duplicates!
+        if ((seeds[id][j].x == x) && (seeds[id][j].y == y)) {
+          --i;
+          dupe = true;
+        }
+        if (dupe) break; // stop scanning other seeds
+      }
+      if (dupe) continue; // don't add this seed
+      local_seeds.push_back( Point<int>(x, y, 0) );
+    }
+  }
+  else if (dim == 3) {
+    int x = 0, y = 0, z = 0;
+    //if (id == 0) seed_points << "x,y,z\n";
+    for (int i = 0; i < nseeds; ++i) {
+      x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
+      y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
+      z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
+      bool dupe = false;
+      for (int j = 0; j < seeds[id].size(); ++j) {
+        // No duplicates!
+        if ((seeds[id][j].x == x) && (seeds[id][j].y == y) && (seeds[id][j].z == z)) {
+          --i;
+          dupe = true;
+        }
+        if (dupe) break; // stop scanning other seeds
+      }
+      if (dupe) continue; // don't add this seed
+      //#endif
       local_seeds.push_back( Point<int>(x, y, z) );
     }
   } else {
