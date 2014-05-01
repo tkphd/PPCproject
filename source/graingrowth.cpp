@@ -23,7 +23,7 @@ void print_progress(const int step, const int steps, const int iterations);
 namespace MMSP {
 
 template <int dim>
-MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds=0)
+MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -89,7 +89,7 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds=0)
 }
 
 
-void generate(int dim, char* filename, int seeds=0) {
+void generate(int dim, char* filename, int seeds, int nthreads) {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
@@ -99,7 +99,7 @@ void generate(int dim, char* filename, int seeds=0) {
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 	if (dim == 2) {
-		MMSP::grid<2,MMSP::sparse<float> >* grid2=generate<2>(seeds);
+		MMSP::grid<2,MMSP::sparse<float> >* grid2=generate<2>(seeds,nthreads);
 		assert(grid2!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid2, filename);
@@ -110,7 +110,7 @@ void generate(int dim, char* filename, int seeds=0) {
 	}
 
 	if (dim == 3) {
-		MMSP::grid<3,MMSP::sparse<float> >* grid3=generate<3>(seeds);
+		MMSP::grid<3,MMSP::sparse<float> >* grid3=generate<3>(seeds,nthreads);
 		assert(grid3!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid3, filename);
@@ -121,7 +121,7 @@ void generate(int dim, char* filename, int seeds=0) {
 	}
 }
 
-template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps) {
+template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads) {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);

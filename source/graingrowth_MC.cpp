@@ -21,7 +21,7 @@
 
 namespace MMSP{
 template <int dim>
-MMSP::grid<dim,int >* generate(int seeds=0){
+MMSP::grid<dim,int >* generate(int seeds, int nthreads){
 #if (defined CCNI) && (!defined MPI_VERSION)
   std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
   exit(1);
@@ -31,7 +31,7 @@ MMSP::grid<dim,int >* generate(int seeds=0){
   rank = MPI::COMM_WORLD.Get_rank();
   int np = MPI::COMM_WORLD.Get_size();
   #endif
- 
+
 	if (dim == 2) {
 		const int edge = 1024;
 		int number_of_fields(seeds);
@@ -54,8 +54,7 @@ MMSP::grid<dim,int >* generate(int seeds=0){
 		MPI::COMM_WORLD.Barrier();
 		#endif
 		return grid;
-	} 
-	else if (dim == 3) {
+	} else if (dim == 3) {
 	  const int edge = 512;
 	  int number_of_fields(seeds);
 	  if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge*edge)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
@@ -64,14 +63,11 @@ MMSP::grid<dim,int >* generate(int seeds=0){
 	  #endif
 	    MMSP::grid<dim,int > * grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge, 0, edge);
 
-	  	if (rank==0) std::cout<<"Grid origin: ("<<g0(grid,0)<<','<<g0(grid,1)<<','<<g0(grid,2)<<"),"
-				<<" dimensions: "<<g1(grid,0)-g0(grid,0)<<" × "<<g1(grid,1)-g0(grid,1)<<" × "<<g1(grid,2)-g0(grid,2)
-				<<" with "<<number_of_fields<<" grains."<<std::endl;
 	  #ifdef MPI_VERSION
 	  number_of_fields /= np;
 	  #endif
 
-#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
+		#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	  std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 	  std::exit(1);
 	  #endif
@@ -84,7 +80,7 @@ MMSP::grid<dim,int >* generate(int seeds=0){
 	  return NULL;
 }
 
-void generate(int dim, char* filename, int seeds=0) {
+void generate(int dim, char* filename, int seeds, int nthreads) {
 #if (defined CCNI) && (!defined MPI_VERSION)
   std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
   exit(1);
@@ -95,7 +91,7 @@ void generate(int dim, char* filename, int seeds=0) {
   int np = MPI::COMM_WORLD.Get_size();
   #endif
   if (dim == 2) {
-    MMSP::grid<2,int>* grid2=generate<2>(seeds);
+    MMSP::grid<2,int>* grid2=generate<2>(seeds,nthreads);
     assert(grid2!=NULL);
     #ifdef BGQ
     output_bgq(*grid2, filename);
@@ -106,7 +102,7 @@ void generate(int dim, char* filename, int seeds=0) {
   }
 
   if (dim == 3) {
-    MMSP::grid<3,int>* grid3=generate<3>(seeds);
+    MMSP::grid<3,int>* grid3=generate<3>(seeds,nthreads);
     assert(grid3!=NULL);
     #ifdef BGQ
     output_bgq(*grid3, filename);
@@ -130,17 +126,17 @@ void generate(int dim, char* filename, int seeds=0) {
 
   template <int dim> void * flip_index_helper( void * s ){
   int rank=0;
-    #ifdef MPI_VERSION
+	#ifdef MPI_VERSION
   rank=MPI::COMM_WORLD.Get_rank();
-    #endif
+	#endif
 
   flip_index<dim> *ss = static_cast<flip_index<dim>*>(s);
   int sublattice = ss->sublattice;
   vector<int> x (dim,0);
-  
+
   const double kT = 0.50;
 
-  // choose a random node 
+  // choose a random node
   srand(time(NULL)); /* seed random number generator */
   int range;
 

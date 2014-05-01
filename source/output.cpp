@@ -113,18 +113,17 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	writeranks = new unsigned int[nwriters+1];
 	aoffsets = new unsigned long[nwriters];
 	writeranks[nwriters]=np-1; // generalization for last writer's benefit
+	unsigned int temprank=0;
 	for (unsigned int w=0; w<nwriters; w++) {
-		static unsigned int i=0;
 		unsigned long ws=(w<=excessblocks)?writesize+blocksize:writesize;
 		// file offset of the w^th writer
 		aoffsets[w]=(w>0)?ws+aoffsets[w-1]:0;
-		while ((aoffsets[w] > offsets[i]+datasizes[i]) && i<np)
-			i++;
-		writeranks[w]=i;
-		if (rank==i)
+		while ((aoffsets[w] > offsets[temprank]+datasizes[temprank]) && temprank<np)
+			temprank++;
+		writeranks[w]=temprank;
+		if (rank==temprank)
 			isWriter=true;
-		i++;
-		if (w==nwriters-1) i=0;
+		temprank++;
 	}
 
 	// Determine which rank to send data to

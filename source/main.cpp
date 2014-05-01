@@ -32,10 +32,10 @@
 #include<sstream>
 #include<cstdlib>
 #include<cctype>
-#ifndef PHASEFIELD
-#include"graingrowth_MC.cpp"
-#else 
+#ifdef PHASEFIELD
 #include"graingrowth.cpp"
+#else
+#include"graingrowth_MC.cpp"
 #endif
 #include"rdtsc.h"
 
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
-        int nthreads = 0;
+	int nthreads = 1;
 	unsigned int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
 		char* filename = new char[outfile.length()];
 		for (unsigned int i=0; i<outfile.length(); i++)
 			filename[i] = outfile[i];
-		MMSP::generate(dim, filename);
+		MMSP::generate(dim, filename, 0, nthreads);
 		delete [] filename;
 	}
 
@@ -234,7 +234,14 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 
-                nthreads = atoi(argv[6]);
+		nthreads = atoi(argv[6]);
+		// must have integral output increment
+		if (std::string(argv[6]).find_first_not_of("0123456789") != std::string::npos) {
+			std::cout << PROGRAM << ": nthreads must have integral value.  Use\n\n";
+			std::cout << "    " << PROGRAM << " --help\n\n";
+			std::cout << "to generate help message.\n\n";
+			exit(-1);
+		}
 
     		// set output file basename
 		int iterations_start = 0;
@@ -257,7 +264,7 @@ int main(int argc, char* argv[]) {
 		#ifdef DEBUG
 		if (rank==0) std::cout<<"Filename base is "<<base<<std::endl;
 		#endif
-      
+
 		// set output file suffix
 		std::string suffix = "";
 		if (outfile.find_last_of(".") != std::string::npos)
@@ -270,7 +277,7 @@ int main(int argc, char* argv[]) {
 		if (dim == 2) {
 			// tessellate
 			unsigned long timer = rdtsc();
-			GRID2D* grid=MMSP::generate<2>();
+			GRID2D* grid=MMSP::generate<2>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
 			char* filename = new char[outfile.length()];
@@ -300,8 +307,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-
-			        MMSP::update(*grid, increment, nthreads);
+				MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -339,7 +345,7 @@ int main(int argc, char* argv[]) {
 		if (dim == 3) {
 			// tessellate
 			unsigned long timer = rdtsc();
-			GRID3D* grid=MMSP::generate<3>();
+			GRID3D* grid=MMSP::generate<3>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
 			char* filename = new char[outfile.length()];
@@ -363,8 +369,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-
-			        MMSP::update(*grid, increment, nthreads);
+				MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
