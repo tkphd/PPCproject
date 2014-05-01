@@ -32,10 +32,10 @@
 #include<sstream>
 #include<cstdlib>
 #include<cctype>
-#ifndef PHASEFIELD
-#include"graingrowth_MC.cpp"
-#else 
+#ifdef PHASEFIELD
 #include"graingrowth.cpp"
+#else
+#include"graingrowth_MC.cpp"
 #endif
 #include"rdtsc.h"
 

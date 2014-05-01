@@ -11,9 +11,9 @@
 #include <cstdlib>
 #include <cassert>
 
+#include"graingrowth_MC.hpp"
 #include"MMSP.hpp"
 #include"tessellate.hpp"
-#include"graingrowth_MC.hpp"
 #include"output.cpp"
 
 

@@ -18,8 +18,8 @@ flags = -I$(incdir) -I$(algodir) -I$(algodir)/topology
 
 # RPI CCI AMOS compilers/flags
 #qcompiler = mpic++ -g -qarch=qp -qtune=qp -qflag=w -qstrict -qreport
-#qcompiler = mpic++ -O3 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qhot=fastmath
-qcompiler = mpic++ -O5 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qsimd=auto -qhot=fastmath -qinline=level=10
+qcompiler = mpic++ -O3 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qhot=fastmath
+#qcompiler = mpic++ -O5 -qarch=qp -qtune=qp -qflag=w -qstrict -qprefetch=aggressive -qsimd=auto -qhot=fastmath -qinline=level=10
 qflags = $(CFLAGS) $(BG_INC) $(BG_LIB) $(LDFLAGS) $(flags)
 
 # ONLY uncomment the following if experimental/zlib is NOT available!!!
