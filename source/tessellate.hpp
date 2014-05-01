@@ -103,10 +103,12 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 	std::set<unsigned int> neighbors;
 	neighbors.insert(id);
 	for (int d=0; d<dim; d++) {
+		// Add first-nearest neighbors
 		neighbors.insert(N0(grid, d));
 		neighbors.insert(N1(grid, d));
 	}
 	for (int d=0; d<dim; d++) {
+		// Add second-nearest neighbors
 		int Nid=N0(grid,d);
 		int pos[dim];
 		for (int i=0; i<dim; i++)
@@ -191,10 +193,12 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 	std::set<unsigned int> neighbors;
 	neighbors.insert(id);
 	for (int d=0; d<dim; d++) {
+		// Add first-nearest neighbors
 		neighbors.insert(N0(grid, d));
 		neighbors.insert(N1(grid, d));
 	}
 	for (int d=0; d<dim; d++) {
+		// Add second-nearest neighbors
 		int Nid=N0(grid,d);
 		int pos[dim];
 		for (int i=0; i<dim; i++)
@@ -239,10 +243,10 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
-		int min_identity=-1;
+		T min_identity=-1;
 
 		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
-			int identity=-1;
+			T identity=-1;
 			unsigned int rank=*i;
 			for (unsigned int j=0; j<rank; j++) identity+=seeds[j].size();
 			for (unsigned int s=0; s<seeds[rank].size(); ++s) {
@@ -263,7 +267,7 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 				}
 			}
 		}
-		grid(n) = reinterpret_cast<T>(min_identity);
+		grid(n) = reinterpret_cast<int>(min_identity);
 	}
 } // exact_voronoi
 #endif
