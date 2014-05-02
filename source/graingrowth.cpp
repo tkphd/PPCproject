@@ -378,15 +378,6 @@ template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps,
 	++iterations;
 }
 
-template <class T> std::ostream& operator<<(std::ostream& o, sparse<float>& s) {
-	o<<"    Index	Value\n";
-	for (int i=0; i<length(s); ++i) {
-		int index = MMSP::index(s, i);
-		o<<"    "<<std::setw(5)<<std::right<<index<<"  "<<s[index]<<'\n';
-	}
-	return o;
-}
-
 } // namespace MMSP
 
 void print_progress(const int step, const int steps, const int iterations) {
@@ -402,7 +393,7 @@ void print_progress(const int step, const int steps, const int iterations) {
 		timestring = std::asctime(timeinfo);
 		timestring[std::strlen(timestring)-1] = '\0';
 		std::cout<<"Pass "<<std::setw(3)<<std::right<<iterations<<": "<<timestring<<" ["<<std::flush;
-	} else if (step==steps-1) {
+	} else if (step==steps) {
 		unsigned long deltat = time(NULL)-tstart;
 		std::cout << "•] "
 							<<std::setw(2)<<std::right<<deltat/3600<<"h:"

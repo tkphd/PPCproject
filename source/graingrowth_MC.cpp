@@ -18,6 +18,7 @@
 #include"tessellate.hpp"
 #include"output.cpp"
 
+void print_progress(const int step, const int steps, const int iterations);
 
 namespace MMSP
 {
@@ -224,6 +225,9 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 		std::cout<<"number of pthread is too large, please reduce it to a value <= "<<x1(grid, 0)-x0(grid, 0)-nthreads-1<<std::endl;
 		exit(0);
 	}
+
+	static int iterations = 1;
+	if (rank==0) print_progress(0, steps, iterations);
 	for (int step=0; step<steps; step++) {
 		for (int sublattice=0; sublattice!= 2; sublattice++) {
 
@@ -259,7 +263,9 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 
 			ghostswap(grid); // once loopd over a "color", ghostswap.
 		}//loop over color
+		if (rank==0) print_progress(step+1, steps, iterations);
 	}//loop over step
+	++iterations;
 
 	delete [] p_threads ;
 	p_threads=NULL;
@@ -276,6 +282,31 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 
 }
 #endif
+
+void print_progress(const int step, const int steps, const int iterations)
+{
+	char* timestring;
+	static unsigned long tstart;
+	struct tm* timeinfo;
+
+	if (step==0) {
+		tstart = time(NULL);
+		std::time_t rawtime;
+		std::time( &rawtime );
+		timeinfo = std::localtime( &rawtime );
+		timestring = std::asctime(timeinfo);
+		timestring[std::strlen(timestring)-1] = '\0';
+		std::cout<<"Pass "<<std::setw(3)<<std::right<<iterations<<": "<<timestring<<" ["<<std::flush;
+	} else if (step==steps) {
+		unsigned long deltat = time(NULL)-tstart;
+		std::cout << "•] "
+							<<std::setw(2)<<std::right<<deltat/3600<<"h:"
+							<<std::setw(2)<<std::right<<(deltat%3600)/60<<"m:"
+							<<std::setw(2)<<std::right<<deltat%60<<"s"
+							<<" (File "<<std::setw(5)<<std::right<<iterations*steps<<")."<<std::endl;
+	} else if ((20 * step) % steps == 0) std::cout<<"• "<<std::flush;
+}
+
 
 #include"MMSP.main.hpp"
 
