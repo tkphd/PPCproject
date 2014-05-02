@@ -325,6 +325,7 @@ int main(int argc, char* argv[]) {
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
+				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
 				MMSP::output_bgq(*grid, filename);
 				#else
@@ -353,6 +354,7 @@ int main(int argc, char* argv[]) {
 				filename[i] = outfile[i];
 			//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 			unsigned long iotimer = rdtsc();
+			//#if defined(BGQ) && defined(PHASEFIELD)
 			#ifdef BGQ
 			MMSP::output_bgq(*grid, filename);
 			#else
@@ -387,6 +389,7 @@ int main(int argc, char* argv[]) {
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
+				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
 				MMSP::output_bgq(*grid, filename);
 				#else
@@ -553,7 +556,7 @@ int main(int argc, char* argv[]) {
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
 
- 			        MMSP::update(grid, increment, nthreads);
+				MMSP::update(grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -570,6 +573,7 @@ int main(int argc, char* argv[]) {
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
+				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else
@@ -585,8 +589,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-
-			        MMSP::update(grid, increment, nthreads);
+				MMSP::update(grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -603,6 +606,7 @@ int main(int argc, char* argv[]) {
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
+				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
 				MMSP::output_bgq(grid, filename);
 				#else

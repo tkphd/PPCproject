@@ -96,6 +96,7 @@ namespace MMSP
 #ifdef MPI_VERSION
 
 #ifdef PHASEFIELD
+// Voronoi tessellation for MMSP::Grid<dim,MMSP::sparse<T>>
 
 template<int dim, typename T>
 struct exact_voronoi_thread_para {
@@ -231,6 +232,7 @@ void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::ve
 }
 
 #else
+// Voronoi tessellation for MMSP::grid<dim,T>
 
 template<int dim, typename T>
 struct exact_voronoi_thread_para {

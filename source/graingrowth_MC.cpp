@@ -222,7 +222,7 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 
 	//check if num of the pthread is too large, if so, reduce it.
 	if ((x1(grid, 0)-x0(grid, 0)-nthreads-1)/nthreads<1) {
-		std::cout<<"number of pthread is too large, please reduce it to a value <= "<<x1(grid, 0)-x0(grid, 0)-nthreads-1<<std::endl;
+		std::cerr<<"ERROR: number of pthread is too large, please reduce it to a value <= "<<x1(grid, 0)-x0(grid, 0)-nthreads-1<<std::endl;
 		exit(0);
 	}
 
@@ -230,7 +230,6 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 	if (rank==0) print_progress(0, steps, iterations);
 	for (int step=0; step<steps; step++) {
 		for (int sublattice=0; sublattice!= 2; sublattice++) {
-
 			for (int i=0; i!= nthreads ; i++ ) {
 
 				front_low_left_corner[0] = x0(grid, 0) + ((x1(grid, 0)-x0(grid, 0)-nthreads-1)/nthreads)*i+i;
@@ -255,13 +254,12 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 
 			}//loop over threads
 
-			for (int i=0; i!= nthreads ; i++) {
+			for (int i=0; i!= nthreads ; i++)
 				pthread_join(p_threads[i], NULL);
-			}
 
 			MPI::COMM_WORLD.Barrier();
 
-			ghostswap(grid); // once loopd over a "color", ghostswap.
+			ghostswap(grid); // once looped over a "color", ghostswap.
 		}//loop over color
 		if (rank==0) print_progress(step+1, steps, iterations);
 	}//loop over step
