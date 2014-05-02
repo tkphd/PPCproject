@@ -10,7 +10,7 @@
 #SBATCH --mail-user=kellet@rpi.edu
 #SBATCH -D /gpfs/u/scratch/PCP4/PCP4kllt/project/
 #SBATCH --partition small
-#SBATCH -t 90
+#SBATCH -t 120
 #SBATCH -N 64
 #SBATCH -n 2048
 #SBATCH --overcommit
