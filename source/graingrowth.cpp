@@ -35,6 +35,7 @@ unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, i
 	rank = MPI::COMM_WORLD.Get_rank();
 	int np = MPI::COMM_WORLD.Get_size();
 	#endif
+	unsigned long timer=0;
 	if (dim == 2) {
 		const int edge = 1024;
 		int number_of_fields(seeds);
@@ -63,7 +64,6 @@ unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, i
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
-		return grid;
 	} else if (dim == 3) {
 		const int edge = 512;
 		int number_of_fields(seeds);
@@ -92,7 +92,6 @@ unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, i
 		#ifndef SILENT
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
 		#endif
-		return grid;
 	}
 	return timer;
 }
@@ -247,20 +246,17 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 	#ifdef MPI_VERSION
  	rank=MPI::COMM_WORLD.Get_rank();
 	#endif
-	
 
 	static int iterations = 1;
-	
-
  	if (rank==0) print_progress(0, steps, iterations);
 
+	unsigned long timer = 0;
 	for (int step = 0; step < steps; step++) {
 		// update grid must be overwritten each time
 		MMSP::grid<dim, sparse<float> > update(grid);
 		ghostswap(grid);
 
-
-
+		unsigned long comptime=rdtsc();
 		pthread_t * p_threads = new pthread_t[ nthreads];
         update_thread_para<dim>* update_para = new update_thread_para<dim>[nthreads];
         pthread_attr_t attr;
@@ -286,14 +282,13 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
         delete [] p_threads ;
         delete [] update_para ;
 
-
-	
 		if (rank==0) print_progress(step+1, steps, iterations);
 		swap(grid, update);
+		timer += rdtsc() - comptime;
 	} // Loop over steps
 	ghostswap(grid);
 	++iterations;
-
+	return timer;
 }
 
 template <int dim>
