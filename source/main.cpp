@@ -64,6 +64,9 @@ int main(int argc, char* argv[]) {
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 
+	if(rank==0)std::cout<<"init time[seconds]    computing time[seconds]  io_bandwidth[GB/second]"<<std::endl;
+        unsigned long update_timer;
+	double io_bandwidth;
 
 	#ifdef BGQ
 	double clock_rate=1600000000.0;
@@ -311,7 +314,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment, nthreads);
+				update_timer = MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -331,8 +334,8 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
-				#else
+				io_bandwidth = MMSP::output_bgq(*grid, filename);
+	 			#else
 				MMSP::output(*grid, filename);
 				#endif
 				iotimer = rdtsc() - iotimer;
@@ -381,7 +384,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment, nthreads);
+			        update_timer = MMSP::update(*grid, increment, nthreads);
 
 				// generate output filename
 				std::stringstream outstr;
@@ -401,7 +404,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
+				io_bandwidth = MMSP::output_bgq(*grid, filename);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
@@ -567,9 +570,9 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-
-				MMSP::update(grid, increment, nthreads);
-
+			  
+				update_timer = MMSP::update(grid, increment, nthreads);
+				
 				// generate output filename
 				std::stringstream outstr;
 				outstr << base;
@@ -587,7 +590,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(grid, filename);
+				io_bandwidth = MMSP::output_bgq(grid, filename);
 				#else
 				MMSP::output(grid, filename);
 				#endif
@@ -601,8 +604,9 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(grid, increment, nthreads);
 
+				update_timer = MMSP::update(grid, increment, nthreads);
+								 
 				// generate output filename
 				std::stringstream outstr;
 				outstr << base;
@@ -620,7 +624,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(grid, filename);
+				io_bandwidth = MMSP::output_bgq(grid, filename);
 				#else
 				MMSP::output(grid, filename);
 				#endif
@@ -628,6 +632,11 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
+
+
+	io_bandwidth *= clock_rate; //units B/s
+	io_bandwidth /= (1024*1024*1024); //units GB/s
+	if(rank==0)std::cout<<"\t\t"<<update_timer<<"\t\t"<<io_bandwidth<<std::endl;
 
 	MMSP::Finalize();
 }

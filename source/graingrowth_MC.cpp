@@ -201,7 +201,7 @@ template <int dim> void* flip_index_helper( void* s )
 }
 
 
-template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthreads)
+template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, int nthreads)
 {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -283,7 +283,7 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
     unsigned long update_timer = rdtsc()-start;
     unsigned long total_update_time;
     MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-    if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
+    return total_update_time;  	
 }
 
 }
