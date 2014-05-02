@@ -235,13 +235,15 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#ifdef DEBUG
 	if (rank==0) std::cout<<"  Opening "<<std::string(filename)<<" for output."<<std::endl;
 	#endif
-	MPI_Info info;
+	MPI_Info info = MPI::INFO_NULL;
+	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	MPI_Info_set(info, "IBM_largeblock_io", "true");
 	#else
 	info = MPI::INFO_NULL;
 	#endif
+	*/
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE, info, &output);
 	if (mpi_err != MPI_SUCCESS) {
@@ -368,7 +370,8 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	}
 
 	// file open error check
-	MPI_Info info;
+	MPI_Info info = MPI::INFO_NULL;
+	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	std::string key("IBM_largeblock_io");
@@ -377,6 +380,7 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	#else
 	info = MPI::INFO_NULL;
 	#endif
+	*/
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, subfilename, MPI::MODE_WRONLY|MPI::MODE_CREATE, info, &output);
 	if (mpi_err != MPI_SUCCESS) {

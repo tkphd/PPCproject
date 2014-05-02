@@ -153,18 +153,18 @@ void* update_threads_helper( void * s )
 	static int iterations = 1;
 	#ifdef DEBUG
 	if (iterations==1 && rank==0)
-		printf("CFL condition Co=%2.2f.\n", mu*eps*eps*dt/(dx(*(ss->grid), 0)*dx(*(ss->grid),0)));
+		printf("CFL condition Co=%2.2f.\n", mu*eps*eps*dt/(dx((*ss->grid), 0)*dx((*ss->grid),0)));
 	#endif
 
  	if (rank==0) print_progress(0, ss->steps, iterations);
 
 	for (int step = 0; step < ss->steps; step++) {
 		// update grid must be overwritten each time
-		MMSP::grid<dim, sparse<float> > update(*(ss->grid));
-		ghostswap(*(ss->grid));
+		MMSP::grid<dim, sparse<float> > update((*ss->grid));
+		ghostswap((*ss->grid));
 
 		for (int i = ss->nstart; i < ss->nend; i++) {
-			vector<int> x = position(*(ss->grid), i);
+			vector<int> x = position((*ss->grid), i);
 
 			// determine nonzero fields within
 			// the neighborhood of this node
@@ -173,8 +173,8 @@ void* update_threads_helper( void * s )
 			for (int j = 0; j < dim; j++)
 				for (int k = -1; k <= 1; k++) {
 					x[j] += k;
-					for (int h = 0; h < length(*(ss->grid)(x)); h++) {
-						int index = MMSP::index(*(ss->grid)(x), h);
+					for (int h = 0; h < length((*ss->grid)(x)); h++) {
+						int index = MMSP::index((*ss->grid)(x), h);
 						set(s, index) = 1;
 					}
 					x[j] -= k;
@@ -183,10 +183,10 @@ void* update_threads_helper( void * s )
 
 			// if only one field is nonzero,
 			// then copy this node to update
-			if (S < 2.0) update(i) = *(ss->grid)(i);
+			if (S < 2.0) update(i) = (*ss->grid)(i);
 			else {
 				// compute laplacian of each field
-				sparse<float> lap = laplacian(*(ss->grid), i);
+				sparse<float> lap = laplacian((*ss->grid), i);
 
 				// compute variational derivatives
 				sparse<float> dFdp;
@@ -195,8 +195,8 @@ void* update_threads_helper( void * s )
 					for (int j = h + 1; j < length(s); j++) {
 						int jindex = MMSP::index(s, j);
 						// Update dFdp_h and dFdp_j, so the inner loop can be over j>h instead of j≠h
-						set(dFdp, hindex) += 0.5 * eps * eps * lap[jindex] + w * *(ss->grid)(i)[jindex];
-						set(dFdp, jindex) += 0.5 * eps * eps * lap[hindex] + w * *(ss->grid)(i)[hindex];
+						set(dFdp, hindex) += 0.5 * eps * eps * lap[jindex] + w * (*ss->grid)(i)[jindex];
+						set(dFdp, jindex) += 0.5 * eps * eps * lap[hindex] + w * (*ss->grid)(i)[hindex];
 					}
 				}
 
@@ -215,7 +215,7 @@ void* update_threads_helper( void * s )
 				float sum = 0.0;
 				for (int h = 0; h < length(s); h++) {
 					int index = MMSP::index(s, h);
-					float value = *(ss->grid)(i)[index] + dt * (2.0 / S) * dpdt[index]; // Extraneous factor of 2?
+					float value = (*ss->grid)(i)[index] + dt * (2.0 / S) * dpdt[index]; // Extraneous factor of 2?
 					if (value > 1.0) value = 1.0;
 					if (value < 0.0) value = 0.0;
 					if (value > epsilon) set(update(i), index) = value;
@@ -232,9 +232,9 @@ void* update_threads_helper( void * s )
 			}
 		} // Loop over nodes(grid)
 		if (rank==0) print_progress(step+1, ss->steps, iterations);
-		swap(*(ss->grid), update);
+		swap((*ss->grid), update);
 	} // Loop over steps
-	ghostswap(*(ss->grid));
+	ghostswap((*ss->grid));
 	++iterations;
 
 
@@ -244,7 +244,8 @@ void* update_threads_helper( void * s )
 
 
 template <int dim>
-void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads) {
+void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
+{
 	pthread_t * p_threads = new pthread_t[ nthreads];
     update_thread_para<dim>* update_para = new update_thread_para<dim>[nthreads];
     pthread_attr_t attr;
@@ -269,11 +270,11 @@ void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthrea
 
     delete [] p_threads ;
     delete [] update_para ;
-
 }
 
-
-template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads) {
+template <int dim>
+void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
+{
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
