@@ -23,7 +23,7 @@ void print_progress(const int step, const int steps, const int iterations);
 namespace MMSP
 {
 template <int dim>
-MMSP::grid<dim,int >* generate(int seeds, int nthreads)
+unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -33,6 +33,7 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 
+	unsigned long timer=0;
 	if (dim == 2) {
 		const int edge = 1024;
 		int number_of_fields(seeds);
@@ -40,7 +41,7 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<dim,int >* grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge);
+		grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge);
 
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
@@ -50,11 +51,10 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,int>(*grid, number_of_fields, nthreads);
+		timer = tessellate<dim,int>(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
-		return grid;
 	} else if (dim == 3) {
 		const int edge = 512;
 		int number_of_fields(seeds);
@@ -62,22 +62,21 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<dim,int >* grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge, 0, edge);
+		grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge, 0, edge);
 
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
 		#endif
 
-		tessellate<dim,int >(*grid, number_of_fields, nthreads);
+		timer = tessellate<dim,int >(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
-		return grid;
 	}
-	return NULL;
+	return timer;
 }
 
-void generate(int dim, char* filename, int seeds, int nthreads)
+unsigned long generate(int dim, char* filename, int seeds, int nthreads)
 {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -87,8 +86,11 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
+
+	unsigned long timer = 0;
 	if (dim == 2) {
-		MMSP::grid<2,int>* grid2=generate<2>(seeds,nthreads);
+		MMSP::grid<2,int>* grid2=NULL;
+		timer = generate<2>(grid2,seeds,nthreads);
 		assert(grid2!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid2, filename);
@@ -101,7 +103,8 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 	}
 
 	if (dim == 3) {
-		MMSP::grid<3,int>* grid3=generate<3>(seeds,nthreads);
+		MMSP::grid<3,int>* grid3=NULL;
+		timer = generate<3>(grid3,seeds,nthreads);
 		assert(grid3!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid3, filename);
@@ -112,7 +115,7 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
 		#endif
 	}
-
+	return timer;
 }
 
 
@@ -201,7 +204,7 @@ template <int dim> void* flip_index_helper( void* s )
 }
 
 
-template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthreads)
+template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, int nthreads)
 {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -283,7 +286,8 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
     unsigned long update_timer = rdtsc()-start;
     unsigned long total_update_time;
     MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-    if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
+    //if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
+    return total_update_time;
 }
 
 }
