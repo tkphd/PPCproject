@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
 		else outfile = argv[3];
 
 		// tessellate
-		char* filename = new char[outfile.length()];
+		char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
 		for (unsigned int i=0; i<outfile.length(); i++)
 			filename[i] = outfile[i];
 		MMSP::generate(dim, filename, 0, nthreads);
@@ -280,7 +280,7 @@ int main(int argc, char* argv[]) {
 			GRID2D* grid=MMSP::generate<2>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
-			char* filename = new char[outfile.length()];
+			char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
 
@@ -317,7 +317,7 @@ int main(int argc, char* argv[]) {
 				outstr << i+increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[outstr.str().length()];
+				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
@@ -348,7 +348,7 @@ int main(int argc, char* argv[]) {
 			GRID3D* grid=MMSP::generate<3>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
-			char* filename = new char[outfile.length()];
+			char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
 			unsigned long iotimer = rdtsc();
@@ -379,7 +379,7 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[outstr.str().length()];
+				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				iotimer = rdtsc();
@@ -563,7 +563,7 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[outstr.str().length()];
+				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				#ifdef DEBUG
@@ -596,7 +596,7 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[outstr.str().length()];
+				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				#ifdef DEBUG
