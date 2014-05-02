@@ -96,10 +96,12 @@ namespace MMSP
 #ifdef MPI_VERSION
 
 #ifdef PHASEFIELD
+
 template<int dim, typename T>
 struct exact_voronoi_thread_para {
 	MMSP::grid<dim,sparse<T> >* grid;
-	const std::vector<std::vector<Point<int> > >* seeds;
+	std::vector<std::vector<Point<int> > >* seeds;
+	std::set<unsigned int>* neigh;
 	unsigned long nstart;
 	unsigned long nend;
 };
@@ -108,66 +110,13 @@ template<int dim, typename T>
 void * exact_voronoi_threads_helper( void* s )
 {
 	exact_voronoi_thread_para<dim,T>* ss = ( exact_voronoi_thread_para<dim,T>* ) s ;
-	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
-	int id=MPI::COMM_WORLD.Get_rank();
-	int np=MPI::COMM_WORLD.Get_size();
 
-	// Determine neighborhood of seeds to scan
-	// based on determination of n0, n1 in MMSP.grid.hpp
-	std::set<unsigned int> neighbors;
-	neighbors.insert(id);
-	for (int d=0; d<dim; d++) {
-		neighbors.insert(N0(*(ss->grid), d));
-		neighbors.insert(N1(*(ss->grid), d));
-	}
-	for (int d=0; d<dim; d++) {
-		int Nid=N0(*(ss->grid),d);
-		int pos[dim];
-		for (int i=0; i<dim; i++)
-			pos[i]=Nid/sp(*(ss->grid),i);
-		for (int i=0; i<dim; i++) {
-			if (i==d) continue; // exclude 3rd-nearest
-			int snpos[dim];
-			for (int j=0; j<dim; j++)
-				snpos[j]=pos[j];
-			unsigned int snid=0;
-			snpos[i] = (pos[i]-1+P1(*(ss->grid),i))%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-			snid=0;
-			snpos[i] = (pos[i]+1)%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-		}
-		Nid=N1(*(ss->grid),d);
-		for (int i=0; i<dim; i++)
-			pos[i]=Nid/sp(*(ss->grid),i);
-		for (int i=0; i<dim; i++) {
-			if (i==d) continue; // exclude 3rd-nearest
-			int snpos[dim];
-			for (int j=0; j<dim; j++)
-				snpos[j]=pos[j];
-			unsigned int snid=0;
-			snpos[i] = (pos[i]-1+P1(*(ss->grid),i))%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-			snid=0;
-			snpos[i] = (pos[i]+1)%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-		}
-	}
-
-	for (unsigned long n=0; n<nodes(*(ss->grid)); ++n) {
+	for (unsigned long n=ss->nstart; n < ss->nend; ++n) {
 		const MMSP::vector<int> x=position(*(ss->grid),n);
 		double min_distance=std::numeric_limits<double>::max();
 		int min_identity=-1;
 
-		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+		for (std::set<unsigned int>::const_iterator i=(*ss->neigh).begin(); i != (*ss->neigh).end(); i++) {
 			int identity=-1;
 			unsigned int rank=*i;
 			for (unsigned int j=0; j<rank; j++) identity+=(*(ss->seeds))[j].size();
@@ -198,24 +147,78 @@ void * exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
+void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
-	pthread_t* p_threads = new pthread_t[ nthreads];
+	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
+	int id=MPI::COMM_WORLD.Get_rank();
+	int np=MPI::COMM_WORLD.Get_size();
+
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid,d));
+		neighbors.insert(N1(grid,d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
+
+	pthread_t* p_threads = new pthread_t[nthreads];
 	pthread_attr_t attr;
 	pthread_attr_init (&attr);
+	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 
 	const unsigned long nincr = nodes(grid)/nthreads;
-
-	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 	unsigned long ns = 0;
 
-	for (int i=0; i!= nthreads ; i++ ) {
+	for (int i=0; i<nthreads; i++) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
 		voronoi_para[i].nend=ns;
 
 		voronoi_para[i].grid = &grid;
 		voronoi_para[i].seeds = &seeds;
+		voronoi_para[i].neigh = &neighbors;
 
 		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper<dim,T>, (void*) &voronoi_para[i] );
 	}
@@ -232,7 +235,8 @@ void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, const std::vector<s
 template<int dim, typename T>
 struct exact_voronoi_thread_para {
 	MMSP::grid<dim,T>* grid;
-	const std::vector<std::vector<Point<int> > >* seeds;
+	std::vector<std::vector<Point<int> > >* seeds;
+	std::set<unsigned int>* neigh;
 	unsigned long nstart;
 	unsigned long nend;
 };
@@ -241,66 +245,13 @@ template<int dim, typename T>
 void * exact_voronoi_threads_helper( void* s )
 {
 	exact_voronoi_thread_para<dim,T>* ss = ( exact_voronoi_thread_para<dim,T>* ) s ;
-	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
-	int id=MPI::COMM_WORLD.Get_rank();
-	int np=MPI::COMM_WORLD.Get_size();
 
-	// Determine neighborhood of seeds to scan
-	// based on determination of n0, n1 in MMSP.grid.hpp
-	std::set<unsigned int> neighbors;
-	neighbors.insert(id);
-	for (int d=0; d<dim; d++) {
-		neighbors.insert(N0(*(ss->grid), d));
-		neighbors.insert(N1(*(ss->grid), d));
-	}
-	for (int d=0; d<dim; d++) {
-		int Nid=N0(*(ss->grid),d);
-		int pos[dim];
-		for (int i=0; i<dim; i++)
-			pos[i]=Nid/sp(*(ss->grid),i);
-		for (int i=0; i<dim; i++) {
-			if (i==d) continue; // exclude 3rd-nearest
-			int snpos[dim];
-			for (int j=0; j<dim; j++)
-				snpos[j]=pos[j];
-			unsigned int snid=0;
-			snpos[i] = (pos[i]-1+P1(*(ss->grid),i))%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-			snid=0;
-			snpos[i] = (pos[i]+1)%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-		}
-		Nid=N1(*(ss->grid),d);
-		for (int i=0; i<dim; i++)
-			pos[i]=Nid/sp(*(ss->grid),i);
-		for (int i=0; i<dim; i++) {
-			if (i==d) continue; // exclude 3rd-nearest
-			int snpos[dim];
-			for (int j=0; j<dim; j++)
-				snpos[j]=pos[j];
-			unsigned int snid=0;
-			snpos[i] = (pos[i]-1+P1(*(ss->grid),i))%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-			snid=0;
-			snpos[i] = (pos[i]+1)%P1(*(ss->grid),i);
-			for (int j=0; j<dim; j++)
-				snid+=sp(*(ss->grid),j)*snpos[j];
-			if (snid<np) neighbors.insert(snid);
-		}
-	}
-
-	for (unsigned long n=0; n<nodes(*(ss->grid)); ++n) {
+	for (unsigned long n=ss->nstart; n < ss->nend; ++n) {
 		const MMSP::vector<int> x=position(*(ss->grid),n);
 		double min_distance=std::numeric_limits<double>::max();
 		int min_identity=-1;
 
-		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
+		for (std::set<unsigned int>::const_iterator i=(*ss->neigh).begin(); i != (*ss->neigh).end(); i++) {
 			int identity=-1;
 			unsigned int rank=*i;
 			for (unsigned int j=0; j<rank; j++) identity+=(*(ss->seeds))[j].size();
@@ -331,24 +282,78 @@ void * exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
+void exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
-	pthread_t* p_threads = new pthread_t[ nthreads];
+	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
+	int id=MPI::COMM_WORLD.Get_rank();
+	int np=MPI::COMM_WORLD.Get_size();
+
+	// Determine neighborhood of seeds to scan
+	// based on determination of n0, n1 in MMSP.grid.hpp
+	std::set<unsigned int> neighbors;
+	neighbors.insert(id);
+	for (int d=0; d<dim; d++) {
+		neighbors.insert(N0(grid,d));
+		neighbors.insert(N1(grid,d));
+	}
+	for (int d=0; d<dim; d++) {
+		int Nid=N0(grid,d);
+		int pos[dim];
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+		Nid=N1(grid,d);
+		for (int i=0; i<dim; i++)
+			pos[i]=Nid/sp(grid,i);
+		for (int i=0; i<dim; i++) {
+			if (i==d) continue; // exclude 3rd-nearest
+			int snpos[dim];
+			for (int j=0; j<dim; j++)
+				snpos[j]=pos[j];
+			unsigned int snid=0;
+			snpos[i] = (pos[i]-1+P1(grid,i))%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+			snid=0;
+			snpos[i] = (pos[i]+1)%P1(grid,i);
+			for (int j=0; j<dim; j++)
+				snid+=sp(grid,j)*snpos[j];
+			if (snid<np) neighbors.insert(snid);
+		}
+	}
+
+	pthread_t* p_threads = new pthread_t[nthreads];
 	pthread_attr_t attr;
 	pthread_attr_init (&attr);
+	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 
 	const unsigned long nincr = nodes(grid)/nthreads;
-
-	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 	unsigned long ns = 0;
 
-	for (int i=0; i!= nthreads ; i++ ) {
+	for (int i=0; i<nthreads; i++) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
 		voronoi_para[i].nend=ns;
 
 		voronoi_para[i].grid = &grid;
 		voronoi_para[i].seeds = &seeds;
+		voronoi_para[i].neigh = &neighbors;
 
 		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper<dim,T>, (void*) &voronoi_para[i] );
 	}
