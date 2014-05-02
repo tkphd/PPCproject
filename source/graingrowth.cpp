@@ -123,16 +123,16 @@ void generate(int dim, char* filename, int seeds, int nthreads) {
 
 template <int dim>
 struct update_thread_para {
-	MMSP::grid<dim, sparse<float> >* grid;
+	MMSP::grid<dim,sparse<float> >* grid;
 	unsigned long nstart;
 	unsigned long nend;
 	unsigned int steps;
 };
 
 template <int dim>
-update_threads_helper( void * s )
+void* update_threads_helper( void * s )
 {
-	update_thread_para * ss = ( update_thread_para* ) s ;
+	update_thread_para<dim>* ss = ( update_thread_para<dim>* ) s ;
 
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
@@ -160,10 +160,10 @@ update_threads_helper( void * s )
 
 	for (int step = 0; step < ss->steps; step++) {
 		// update grid must be overwritten each time
-		MMSP::*(ss->grid)<dim, sparse<float> > update(*(ss->grid));
+		MMSP::grid<dim, sparse<float> > update(*(ss->grid));
 		ghostswap(*(ss->grid));
 
-		for (int i = 0; i < nodes(*(ss->grid)); i++) {
+		for (int i = ss->nstart; i < ss->nend; i++) {
 			vector<int> x = position(*(ss->grid), i);
 
 			// determine nonzero fields within
@@ -246,24 +246,21 @@ update_threads_helper( void * s )
 template <int dim>
 void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads) {
 	pthread_t * p_threads = new pthread_t[ nthreads];
-    update_thread_para * update_para = new update_thread_para[nthreads];
+    update_thread_para<dim>* update_para = new update_thread_para<dim>[nthreads];
     pthread_attr_t attr;
     pthread_attr_init (&attr);
     unsigned long nincr = nodes(grid)/nthreads;
     unsigned long ns = 0;
-  
 
-
-    for(int i=0; i!= nthreads ; i++) {
+    for(int i=0; i<nthreads; i++) {
     	update_para[i].nstart=ns;
         ns+=nincr;
         update_para[i].nend=ns;
 
         update_para[i].grid= &grid;
         update_para[i].steps= steps;
-   
 
-        pthread_create(&p_threads[i], &attr, update_threads_helper, (void *) &update_para[i] );
+        pthread_create(&p_threads[i], &attr, update_threads_helper<dim>, (void *) &update_para[i] );
     }
 
     for(int i=0; i!= nthreads ; i++) {
@@ -276,7 +273,7 @@ void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthrea
 }
 
 
-template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps) {
+template <int dim> void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads) {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);

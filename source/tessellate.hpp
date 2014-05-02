@@ -286,7 +286,7 @@ void exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Poin
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
-	int np=MPI::COMM_WORLD.Get_size();
+	unsigned int np=MPI::COMM_WORLD.Get_size();
 
 	// Determine neighborhood of seeds to scan
 	// based on determination of n0, n1 in MMSP.grid.hpp
@@ -1123,7 +1123,7 @@ template<int dim, typename T>
 void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 {
 	int id=0;
-	int np=1;
+	unsigned int np=1;
 	#ifdef MPI_VERSION
 	id=MPI::COMM_WORLD.Get_rank();
 	np=MPI::COMM_WORLD.Get_size();
@@ -1146,7 +1146,7 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 			x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
 			y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
 			bool dupe = false;
-			for (int j = 0; j < seeds[id].size(); ++j) {
+			for (unsigned int j = 0; j < seeds[id].size(); ++j) {
 				// No duplicates!
 				if ((seeds[id][j].x == x) && (seeds[id][j].y == y)) {
 					--i;
@@ -1165,7 +1165,7 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 			y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
 			z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
 			bool dupe = false;
-			for (int j = 0; j < seeds[id].size(); ++j) {
+			for (unsigned int j = 0; j < seeds[id].size(); ++j) {
 				// No duplicates!
 				if ((seeds[id][j].x == x) && (seeds[id][j].y == y) && (seeds[id][j].z == z)) {
 					--i;

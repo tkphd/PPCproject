@@ -28,9 +28,7 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
 	#endif
-	int rank=0;
 	#ifdef MPI_VERSION
-	rank = MPI::COMM_WORLD.Get_rank();
 	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 
@@ -87,7 +85,6 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
-	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 	if (dim == 2) {
 		MMSP::grid<2,int>* grid2=generate<2>(seeds,nthreads);
@@ -125,11 +122,6 @@ template <int dim> struct flip_index {
 
 template <int dim> void* flip_index_helper( void* s )
 {
-	int rank=0;
-	#ifdef MPI_VERSION
-	rank=MPI::COMM_WORLD.Get_rank();
-	#endif
-
 	flip_index<dim>* ss = static_cast<flip_index<dim>*>(s);
 	int sublattice = ss->sublattice;
 	vector<int> x (dim,0);
