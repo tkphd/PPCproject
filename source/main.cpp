@@ -168,11 +168,11 @@ int main(int argc, char* argv[]) {
 		else outfile = argv[3];
 
 		// tessellate
-		char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
+		char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 		for (unsigned int i=0; i<outfile.length(); i++)
 			filename[i] = outfile[i];
+		//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 		MMSP::generate(dim, filename, 0, nthreads);
-		delete [] filename;
 	}
 
 
@@ -280,9 +280,10 @@ int main(int argc, char* argv[]) {
 			GRID2D* grid=MMSP::generate<2>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
-			char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
+			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
+			//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 
 			// write initialized grid to file
 			unsigned long iotimer = rdtsc();
@@ -303,7 +304,6 @@ int main(int argc, char* argv[]) {
 			allio=iotimer;
 			#endif
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
-			delete [] filename; filename=NULL;
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
@@ -317,9 +317,10 @@ int main(int argc, char* argv[]) {
 				outstr << i+increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
+				char filename[FILENAME_MAX] = { }; //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 				iotimer = rdtsc();
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
@@ -336,7 +337,6 @@ int main(int argc, char* argv[]) {
 				allio = iotimer;
 				#endif
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
-				delete [] filename; filename=NULL;
 				outstr.str("");
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
@@ -348,9 +348,10 @@ int main(int argc, char* argv[]) {
 			GRID3D* grid=MMSP::generate<3>(0, nthreads);
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
 			assert(grid!=NULL);
-			char* filename = new char[FILENAME_MAX](); //new char[outfile.length()+2];
+			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
+			//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 			unsigned long iotimer = rdtsc();
 			#ifdef BGQ
 			MMSP::output_bgq(*grid, filename);
@@ -365,7 +366,6 @@ int main(int argc, char* argv[]) {
 			allio = iotimer;
 			#endif
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
-			delete [] filename; filename=NULL;
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
@@ -379,9 +379,10 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
+				char filename[FILENAME_MAX] = { }; //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 				iotimer = rdtsc();
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
@@ -399,7 +400,6 @@ int main(int argc, char* argv[]) {
 				#endif
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 				outstr.str("");
-				delete [] filename; filename=NULL;
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
 		}
@@ -563,9 +563,10 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
+				char filename[FILENAME_MAX] = { }; //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
@@ -575,7 +576,6 @@ int main(int argc, char* argv[]) {
 				MMSP::output(grid, filename);
 				#endif
 				outstr.str("");
-				delete [] filename;
 			}
 		}
 
@@ -596,9 +596,10 @@ int main(int argc, char* argv[]) {
 				outstr << i + increment << suffix;
 
 				// write grid output to file
-				char* filename = new char[FILENAME_MAX](); //new char[outstr.str().length()+2];
+				char filename[FILENAME_MAX] = { }; //new char[outstr.str().length()+2];
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
+				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
@@ -608,7 +609,6 @@ int main(int argc, char* argv[]) {
 				MMSP::output(grid, filename);
 				#endif
 				outstr.str("");
-				delete [] filename;
 			}
 		}
 	}
