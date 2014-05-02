@@ -232,6 +232,9 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI::COMM_WORLD.Barrier();
 
 	// file open error check
+	#ifdef DEBUG
+	if (rank==0) std::cout<<"  Opening "<<std::string(filename)<<" for output."<<std::endl;
+	#endif
 	MPI_Info info;
 	/*
 	#ifdef BGQ
@@ -527,7 +530,7 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	datasizes=NULL;
 
 	#ifdef BGQ
-	MPI_Info_free(info);
+	//MPI_Info_free(info);
 	#endif
 	MPI_Comm_free(&subcomm);
 }

@@ -282,16 +282,6 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 	}
 }
 
-template <class T> std::ostream& operator<<(std::ostream& o, int& s)
-{
-	o<<"    IndexValue\n";
-	for (int i=0; i<length(s); ++i) {
-		int index = MMSP::index(s, i);
-		o<<"    "<<std::setw(5)<<std::right<<index<<"  "<<s[index]<<'\n';
-	}
-	return o;
-}
-
 }
 #endif
 

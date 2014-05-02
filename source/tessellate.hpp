@@ -151,7 +151,7 @@ void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::ve
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
-	int np=MPI::COMM_WORLD.Get_size();
+	unsigned int np=MPI::COMM_WORLD.Get_size();
 
 	// Determine neighborhood of seeds to scan
 	// based on determination of n0, n1 in MMSP.grid.hpp
@@ -1249,7 +1249,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	MTRand pseudorand_number( pseudorand_seed );
 	std::vector<Point<int> > local_seeds; // blank for now
 	std::vector<std::vector<Point<int> > > seeds;
-	while (seeds.size() <= np) seeds.push_back(local_seeds); // avoid a segfault
+	while (int(seeds.size()) <= np) seeds.push_back(local_seeds); // avoid a segfault
 
 	// Generate the seeds
 	if (dim == 2) {
@@ -1259,7 +1259,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 			x = x0(grid, 0) + pseudorand_number.randInt( x1(grid, 0) - x0(grid, 0) - 1 );
 			y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
 			bool dupe = false;
-			for (int j = 0; j < seeds[id].size(); ++j) {
+			for (unsigned int j = 0; j < seeds[id].size(); ++j) {
 				// No duplicates!
 				if ((seeds[id][j].x == x) && (seeds[id][j].y == y)) {
 					--i;
@@ -1278,7 +1278,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 			y = x0(grid, 1) + pseudorand_number.randInt( x1(grid, 1) - x0(grid, 1) - 1 );
 			z = x0(grid, 2) + pseudorand_number.randInt( x1(grid, 2) - x0(grid, 2) - 1 );
 			bool dupe = false;
-			for (int j = 0; j < seeds[id].size(); ++j) {
+			for (unsigned int j = 0; j < seeds[id].size(); ++j) {
 				// No duplicates!
 				if ((seeds[id][j].x == x) && (seeds[id][j].y == y) && (seeds[id][j].z == z)) {
 					--i;
@@ -1307,17 +1307,17 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	MPI::COMM_WORLD.Barrier();
 	MPI::COMM_WORLD.Allgather(&send_size, 1, MPI_INT, seed_sizes, 1, MPI_INT);
 	int total_size=0;
-	for (unsigned int i=0; i<np; ++i) total_size+=seed_sizes[i];
+	for (int i=0; i<np; ++i) total_size+=seed_sizes[i];
 	int* offsets = new int[np];
 	offsets[0]=0;
-	for (unsigned int i=1; i<np; ++i) offsets[i]=seed_sizes[i-1]+offsets[i-1];
+	for (int i=1; i<np; ++i) offsets[i]=seed_sizes[i-1]+offsets[i-1];
 	int* seed_block = new int[total_size];
 	MPI::COMM_WORLD.Barrier();
 	MPI::COMM_WORLD.Allgatherv(send_buffer, send_size, MPI_INT, seed_block, seed_sizes, offsets, MPI_INT);
 	delete [] send_buffer;
 	send_buffer=NULL;
 
-	for (unsigned int i=0; i<np; ++i) {
+	for (int i=0; i<np; ++i) {
 		int* p=seed_block+offsets[i];
 		MMSP::seeds_from_buffer(seeds[i], p, seed_sizes[i]);
 	}

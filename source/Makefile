@@ -13,7 +13,7 @@ BG_LIB = -L$(BG_PATH)/lib
 
 # compilers/flags
 compiler = g++ -O3 -Wall
-pcompiler = mpic++ -O3 -Wall
+pcompiler = mpic++ -g -Wall
 flags = -I$(incdir) -I$(algodir) -I$(algodir)/topology
 
 # RPI CCI AMOS compilers/flags
@@ -36,7 +36,7 @@ graingrowth.out: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(compiler) $(flags) $< -o $@ -lz
 
 parallel: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(pcompiler) -DDEBUG $(flags) -include mpi.h $< -o parallel_GG.out -lz
+	$(pcompiler) -DBGQ -DDEBUG -DPHASEFIELD $(flags) -include mpi.h $< -o parallel_GG.out -lz
 
 bgqmc: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(qcompiler) $(qflags) -DBGQ $< -o q_MC.out -lz
