@@ -321,7 +321,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 }
 
 template <int dim,typename T>
-void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfiles=1)
+double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfiles=1)
 {
 	/* MPI-IO split across multiple files */
 	// Function will write a header file named <filename>, plus
@@ -521,6 +521,7 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 	MPI_Info_free(info);
 	#endif
 	MPI_Comm_free(&subcomm);
+	return 0.0;
 }
 
 } // namespace MMSP

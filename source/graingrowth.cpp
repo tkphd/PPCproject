@@ -15,6 +15,7 @@
 
 #include"graingrowth.hpp"
 #include"MMSP.hpp"
+#include"rdtsc.h"
 #include"tessellate.hpp"
 #include"output.cpp"
 
@@ -23,12 +24,14 @@ void print_progress(const int step, const int steps, const int iterations);
 namespace MMSP {
 
 template <int dim>
-MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
+//MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
+unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, int nthreads)
 {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
 	#endif
+	unsigned long timer=0;
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
@@ -41,7 +44,7 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0, 0, edge, 0, edge);
+		grid = new MMSP::grid<dim,MMSP::sparse<float> >(0, 0, edge, 0, edge);
 		#ifndef SILENT
 		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<"),"
 												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)
@@ -55,14 +58,13 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,float>(*grid, number_of_fields, nthreads);
+		timer = tessellate<dim,float>(*grid, number_of_fields, nthreads);
 		#ifndef SILENT
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
 		#endif
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
-		return grid;
 	} else if (dim == 3) {
 		const int edge = 512;
 		int number_of_fields(seeds);
@@ -70,7 +72,7 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0,0,edge,0,edge,0,edge);
+		grid = new MMSP::grid<dim,MMSP::sparse<float> >(0,0,edge,0,edge,0,edge);
 		#ifndef SILENT
 		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<','<<g0(*grid,2)<<"),"
 												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)<<" × "<<g1(*grid,2)-g0(*grid,2)
@@ -84,30 +86,31 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,float>(*grid, number_of_fields, nthreads);
+		timer = tessellate<dim,float>(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
 		#ifndef SILENT
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
 		#endif
-		return grid;
 	}
-	return NULL;
+	return timer;
 }
 
 
-void generate(int dim, char* filename, int seeds, int nthreads) {
+unsigned long generate(int dim, char* filename, int seeds, int nthreads) {
 	#if (defined CCNI) && (!defined MPI_VERSION)
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
 	#endif
+	unsigned long timer = 0;
 	int rank=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
 	if (dim == 2) {
-		MMSP::grid<2,MMSP::sparse<float> >* grid2=generate<2>(seeds,nthreads);
+		MMSP::grid<2,MMSP::sparse<float> >* grid2=NULL;
+		timer=generate<2>(grid2,seeds,nthreads);
 		assert(grid2!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid2, filename);
@@ -120,7 +123,8 @@ void generate(int dim, char* filename, int seeds, int nthreads) {
 	}
 
 	if (dim == 3) {
-		MMSP::grid<3,MMSP::sparse<float> >* grid3=generate<3>(seeds,nthreads);
+		MMSP::grid<3,MMSP::sparse<float> >* grid3=NULL;
+		timer=generate<3>(grid3,seeds,nthreads);
 		assert(grid3!=NULL);
 		#ifdef BGQ
 		output_bgq(*grid3, filename);
@@ -131,6 +135,8 @@ void generate(int dim, char* filename, int seeds, int nthreads) {
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
 		#endif
 	}
+
+	return timer;
 }
 
 template <int dim>
@@ -162,17 +168,17 @@ void* update_threads_helper( void * s )
 	const float mu = 1.0;
 	const float epsilon = 1.0e-8;
 
-	#ifndef SILENT
+	//#ifndef SILENT
 	static int iterations = 1;
 	#ifdef DEBUG
 	if (iterations==1 && rank==0)
 		printf("CFL condition Co=%2.2f.\n", mu*eps*eps*dt/(dx((*ss->grid), 0)*dx((*ss->grid),0)));
 	#endif
-	#endif
+	//#endif
 
-	#ifndef SILENT
+	//#ifndef SILENT
  	if (rank==0) print_progress(0, ss->steps, iterations);
- 	#endif
+ 	//#endif
 
 	for (int step = 0; step < ss->steps; step++) {
 		// update grid must be overwritten each time
@@ -247,15 +253,15 @@ void* update_threads_helper( void * s )
 				}
 			}
 		} // Loop over nodes(grid)
-		#ifndef SILENT
+		//#ifndef SILENT
 		if (rank==0) print_progress(step+1, ss->steps, iterations);
-		#endif
+		//#endif
 		swap((*ss->grid), update);
 	} // Loop over steps
 	ghostswap((*ss->grid));
-	#ifndef SILENT
+	//#ifndef SILENT
 	++iterations;
-	#endif
+	//#endif
 
 
 	pthread_exit(0);
@@ -264,7 +270,7 @@ void* update_threads_helper( void * s )
 
 
 template <int dim>
-void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
+unsigned long update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 {
 	pthread_t * p_threads = new pthread_t[ nthreads];
     update_thread_para<dim>* update_para = new update_thread_para<dim>[nthreads];
@@ -290,15 +296,17 @@ void update_threads(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthrea
 
     delete [] p_threads ;
     delete [] update_para ;
+    return 0;
 }
 
 template <int dim>
-void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
+unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
 	std::cerr<<"Error: MPI is required for CCNI."<<std::endl;
 	exit(1);
 	#endif
+	unsigned long timer=0;
 	int rank=0;
 	#ifdef MPI_VERSION
  	rank=MPI::COMM_WORLD.Get_rank();
@@ -328,6 +336,7 @@ void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 		MMSP::grid<dim, sparse<float> > update(grid);
 		ghostswap(grid);
 
+		unsigned long comp_time=rdtsc();
 		for (int i = 0; i < nodes(grid); i++) {
 			vector<int> x = position(grid, i);
 
@@ -396,20 +405,23 @@ void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 				}
 			}
 		} // Loop over nodes(grid)
+		swap(grid, update);
+		comp_time=rdtsc()-comp_time;
+		timer+=comp_time;
 		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
 		#endif
-		swap(grid, update);
 	} // Loop over steps
 	ghostswap(grid);
 	#ifndef SILENT
 	++iterations;
 	#endif
+	return timer;
 }
 
 } // namespace MMSP
 
-#ifndef SILENT
+//#ifndef SILENT
 void print_progress(const int step, const int steps, const int iterations) {
 	char* timestring;
 	static unsigned long tstart;
@@ -432,7 +444,7 @@ void print_progress(const int step, const int steps, const int iterations) {
 							<<" (File "<<std::setw(5)<<std::right<<iterations*steps<<")."<<std::endl;
 	} else if ((20 * step) % steps == 0) std::cout<<"• "<<std::flush;
 }
-#endif
+//#endif
 
 #endif
 

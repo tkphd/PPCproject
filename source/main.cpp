@@ -274,12 +274,16 @@ int main(int argc, char* argv[]) {
 		// set output filename length
 		int length = base.length() + suffix.length() + ilength(steps);
 
+		unsigned long init_cycles=0, comp_cycles=0;
+		double init_bw=0.0, comp_bw=0.0;
+
 		if (dim == 2) {
 			// tessellate
-			unsigned long timer = rdtsc();
-			GRID2D* grid=MMSP::generate<2>(0, nthreads);
+			GRID2D* grid=NULL;
+			init_cycles = MMSP::generate<2>(grid, 0, nthreads);
+			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
 			#ifndef SILENT
-			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Finished tessellation in "<<init_cycles/clock_rate<<" sec."<<std::endl;
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
@@ -288,30 +292,33 @@ int main(int argc, char* argv[]) {
 			//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
 
 			// write initialized grid to file
-			unsigned long iotimer = rdtsc();
-			double clockbw = 0.0;
+			unsigned long iocycles = rdtsc();
+			double init_bw = 0.0;
 			#ifdef BGQ
-			clockbw = MMSP::output_bgq(*grid, filename);
-			clockbw *= clock_rate;
+			init_bw = MMSP::output_bgq(*grid, filename);
+			init_bw *= clock_rate;
 			#else
-			MMSP::output(*grid, filename);
+			init_bw = MMSP::output(*grid, filename);
+			init_bw *= clock_rate;
 			#endif
-			iotimer = rdtsc() - iotimer;
+			iocycles = rdtsc() - iocycles;
 			unsigned long allio=0;
 			double allbw = 0.0;
 			#ifdef MPI_VERSION
-			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
-			MPI_Reduce(&clockbw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&iocycles, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&init_bw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 			#else
-			allio=iotimer;
+			allio=iocycles;
 			#endif
+			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			#endif
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment, nthreads);
+				comp_cycles = MMSP::update(*grid, increment, nthreads);
+				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(comp_cycles)/clock_rate<<std::endl;
 
 				// generate output filename
 				std::stringstream outstr;
@@ -325,24 +332,27 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
-				iotimer = rdtsc();
+				iocycles = rdtsc();
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
+				comp_bw += MMSP::output_bgq(*grid, filename);
 				#else
-				MMSP::output(*grid, filename);
+				comp_bw += MMSP::output(*grid, filename);
 				#endif
-				iotimer = rdtsc() - iotimer;
+				comp_bw *= clock_rate;
+				iocycles = rdtsc() - iocycles;
 				#ifdef MPI_VERSION
-				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&iocycles, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&comp_bw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
-				allio = iotimer;
+				allio = iocycles;
 				#endif
+				if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
 				#ifndef SILENT
-				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio<<" sec."<<std::endl;
 				#endif
 				outstr.str("");
 			}
@@ -351,37 +361,44 @@ int main(int argc, char* argv[]) {
 
 		if (dim == 3) {
 			// tessellate
-			unsigned long timer = rdtsc();
-			GRID3D* grid=MMSP::generate<3>(0, nthreads);
+			GRID3D* grid=NULL;
+			init_cycles=MMSP::generate<3>(grid, 0, nthreads);
+			if (rank==0) std::cout<<"init_time(sec)\t"<<init_cycles<<std::endl;
 			#ifndef SILENT
-			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Finished tessellation in "<<init_cycles/clock_rate<<" sec."<<std::endl;
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
 				filename[i] = outfile[i];
 			//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
-			unsigned long iotimer = rdtsc();
+			unsigned long iocycles = rdtsc();
 			//#if defined(BGQ) && defined(PHASEFIELD)
 			#ifdef BGQ
-			MMSP::output_bgq(*grid, filename);
+			init_bw = MMSP::output_bgq(*grid, filename);
+			init_bw *= clock_rate;
 			#else
-			MMSP::output(*grid, filename);
+			init_bw = MMSP::output(*grid, filename);
+			init_bw *= clock_rate;
 			#endif
-			iotimer = rdtsc() - iotimer;
+			iocycles = rdtsc() - iocycles;
 			unsigned long allio = 0;
+			double allbw=0.0;
 			#ifdef MPI_VERSION
-			MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&iocycles, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+			MPI_Reduce(&init_bw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 			#else
-			allio = iotimer;
+			allio = iocycles;
 			#endif
+			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 			#endif
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				MMSP::update(*grid, increment, nthreads);
+				comp_cycles += MMSP::update(*grid, increment, nthreads);
+				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(comp_cycles)/clock_rate<<std::endl;
 
 				// generate output filename
 				std::stringstream outstr;
@@ -395,22 +412,25 @@ int main(int argc, char* argv[]) {
 				for (unsigned int i=0; i<outstr.str().length(); i++)
 					filename[i] = outstr.str()[i];
 				//for (unsigned int i=outfile.length(); i<FILENAME_MAX; i++) filename[i] = '\0';
-				iotimer = rdtsc();
+				iocycles = rdtsc();
 				#ifdef DEBUG
 				if (rank==0) std::cout<<"Writing "<<std::string(filename)<<std::endl;
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(*grid, filename);
+				comp_bw += MMSP::output_bgq(*grid, filename);
 				#else
-				MMSP::output(*grid, filename);
+				comp_bw += MMSP::output(*grid, filename);
 				#endif
-				iotimer = rdtsc() - iotimer;
+				comp_bw *= clock_rate;
+				iocycles = rdtsc() - iocycles;
 				#ifdef MPI_VERSION
-				MPI_Reduce(&iotimer, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&iocycles, &allio, 1, MPI_UNSIGNED_LONG, MPI_MAX, 0, MPI::COMM_WORLD);
+				MPI_Reduce(&comp_bw, &allbw, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#else
-				allio = iotimer;
+				allio = iocycles;
 				#endif
+				if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
 				#ifndef SILENT
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
 				#endif

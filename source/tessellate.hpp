@@ -17,6 +17,7 @@
 #include <cassert>
 #include "MersenneTwister.h"
 #include "point.hpp"
+#include "rdtsc.h"
 
 // MMSP boundary conditions -- copied from MMSP.utility.hpp
 enum {
@@ -148,7 +149,7 @@ void * exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
+unsigned long exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
@@ -212,6 +213,7 @@ void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::ve
 	const unsigned long nincr = nodes(grid)/nthreads;
 	unsigned long ns = 0;
 
+	unsigned long timer=rdtsc();
 	for (int i=0; i<nthreads; i++) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
@@ -227,8 +229,9 @@ void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, std::vector<std::ve
 	for (int i=0; i!= nthreads ; i++)
 		pthread_join(p_threads[i], NULL);
 
-	delete [] p_threads ;
-	delete [] voronoi_para ;
+	delete [] p_threads;
+	delete [] voronoi_para;
+	return rdtsc() - timer;
 }
 
 #else
@@ -284,7 +287,7 @@ void * exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
+unsigned long exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
@@ -348,6 +351,7 @@ void exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Poin
 	const unsigned long nincr = nodes(grid)/nthreads;
 	unsigned long ns = 0;
 
+	unsigned long timer = rdtsc();
 	for (int i=0; i<nthreads; i++) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
@@ -363,14 +367,15 @@ void exact_voronoi_threads(MMSP::grid<dim,T>& grid, std::vector<std::vector<Poin
 	for (int i=0; i!= nthreads ; i++)
 		pthread_join(p_threads[i], NULL);
 
-	delete [] p_threads ;
-	delete [] voronoi_para ;
+	delete [] p_threads;
+	delete [] voronoi_para;
+	return rdtsc() - timer;
 }
 
 #endif
 
 template<int dim, typename T>
-void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
+unsigned long exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
@@ -428,6 +433,7 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 		}
 	}
 
+	unsigned long timer=rdtsc();
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
@@ -457,10 +463,11 @@ void exact_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vec
 		}
 		set(grid(n), min_identity) = 1.;
 	}
+	return rdtsc() - timer;
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+unsigned long exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
 {
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
@@ -518,6 +525,7 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 		}
 	}
 
+	unsigned long timer=rdtsc();
 	for (unsigned long n=0; n<nodes(grid); ++n) {
 		const MMSP::vector<int> x=position(grid,n);
 		double min_distance=std::numeric_limits<double>::max();
@@ -547,6 +555,7 @@ void exact_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<
 		}
 		grid(n) = reinterpret_cast<int>(min_identity);
 	}
+	return rdtsc() - timer;
 } // exact_voronoi
 #endif
 
@@ -645,7 +654,7 @@ void seeds_from_buffer(std::vector<Point<int> >& vp, int*& q, const int& size)
 
 
 template<int dim, typename T>
-void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
+unsigned long approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds)
 {
 	// Implements a fast marching algorithm to generate the distance map
 	// Based on code written by Barb Cutler, RPI Comp. Sci. Dept., for CSCI-1200.
@@ -655,6 +664,7 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 	// Perform the tessellation, using fast-marching fanciness
+	unsigned long timer=0;
 	if (dim == 2) {
 		int min[2];
 		int max[2];
@@ -699,11 +709,13 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 		}
 
 		// Fast-march the local seeds
+		unsigned long qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		#ifdef MPI_VERSION
 		// Copy ghost voxels from adjacent ranks
@@ -755,11 +767,13 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 		#endif
 
 		// Fast-march the ghost points
+		qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		// Copy result from distance_grid to phase-field grid
 		for (int i = 0; i < nodes(distance_grid); ++i)
@@ -805,11 +819,13 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 		}
 
 		// Fast-march the local seeds
+		unsigned long qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		#ifdef MPI_VERSION
 		// Copy ghost voxels from adjacent ranks
@@ -866,11 +882,13 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 		#endif
 
 		// Fast-march the ghost points
+		qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		// Copy result from distance_grid to phase-field grid
 		for (int i = 0; i < nodes(distance_grid); ++i)
@@ -879,10 +897,11 @@ void approximate_voronoi(MMSP::grid<dim, sparse<T> >& grid, const std::vector<st
 		std::cerr << "Error: Invalid dimension (" << dim << ") in tessellation." << std::endl;
 		std::exit(1);
 	}
+	return timer;
 } // approximate_voronoi
 
 template<int dim, typename T>
-void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
+unsigned long approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds)
 {
 	// Implements a fast marching algorithm to generate the distance map
 	// Based on code written by Barb Cutler, RPI Comp. Sci. Dept., for CSCI-1200.
@@ -892,6 +911,7 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 	int np = MPI::COMM_WORLD.Get_size();
 	#endif
 	// Perform the tessellation, using fast-marching fanciness
+	unsigned long timer=0;
 	if (dim == 2) {
 		int min[2];
 		int max[2];
@@ -936,11 +956,13 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 		}
 
 		// Fast-march the local seeds
+		unsigned long qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		#ifdef MPI_VERSION
 		// Copy ghost voxels from adjacent ranks
@@ -992,11 +1014,13 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 		#endif
 
 		// Fast-march the ghost points
+		qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		// Copy result from distance_grid to phase-field grid
 		for (int i = 0; i < nodes(distance_grid); ++i)
@@ -1043,11 +1067,13 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 		}
 
 		// Fast-march the local seeds
+		unsigned long qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		#ifdef MPI_VERSION
 		// Copy ghost voxels from adjacent ranks
@@ -1104,11 +1130,13 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 		#endif
 
 		// Fast-march the ghost points
+		qtimer=rdtsc();
 		while ( !queue.empty() ) {
 			const DistanceVoxel* p = queue.top();
 			queue.pop();
 			propagate_distance( p, distance_grid, queue );
 		}
+		timer+=rdtsc()-qtimer;
 
 		// Copy result from distance_grid to phase-field grid
 		for (int i = 0; i < nodes(distance_grid); ++i)
@@ -1118,11 +1146,12 @@ void approximate_voronoi(MMSP::grid<dim,T>& grid, const std::vector<std::vector<
 		std::cerr << "Error: Invalid dimension (" << dim << ") in tessellation." << std::endl;
 		std::exit(1);
 	}
+	return timer;
 } // approximate_voronoi
 
 
 template<int dim, typename T>
-void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
+unsigned long tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 {
 	int id=0;
 	unsigned int np=1;
@@ -1227,10 +1256,11 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 	#endif
 
 	// Perform the actual tessellation
+	unsigned long timer=0;
 	#ifndef MPI_VERSION
-	approximate_voronoi<dim,T>(grid, seeds);
+	timer=approximate_voronoi<dim,T>(grid, seeds);
 	#else
-	exact_voronoi_threads<dim,T>(grid, seeds, nthreads);
+	timer=exact_voronoi_threads<dim,T>(grid, seeds, nthreads);
 	MPI::COMM_WORLD.Barrier();
 	total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
@@ -1238,10 +1268,11 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 	if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
 	#endif
 	#endif
+	return timer;
 } // tessellate
 
 template<int dim, typename T>
-void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, const int& nthreads)
+unsigned long tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, const int& nthreads)
 {
 	int id=0;
 	int np=1;
@@ -1346,10 +1377,11 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	#endif
 
 	// Perform the actual tessellation
+	unsigned long timer=0;
 	#ifndef MPI_VERSION
-	approximate_voronoi<dim,T>(grid, seeds);
+	timer=approximate_voronoi<dim,T>(grid, seeds);
 	#else
-	exact_voronoi_threads<dim,T>(grid, seeds, nthreads);
+	timer=exact_voronoi_threads<dim,T>(grid, seeds, nthreads);
 	MPI::COMM_WORLD.Barrier();
 	total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
@@ -1357,6 +1389,7 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
 	#endif
 	#endif
+	return timer;
 } // tessellate
 
 } // namespace
