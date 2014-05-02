@@ -53,7 +53,7 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,float>(*grid, number_of_fields);
+		tessellate<dim,float>(*grid, number_of_fields, nthreads);
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
@@ -78,7 +78,7 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,float>(*grid, number_of_fields);
+		tessellate<dim,float>(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
@@ -418,3 +418,6 @@ void print_progress(const int step, const int steps, const int iterations) {
 #endif
 
 #include"MMSP.main.hpp"
+
+// Formatted using astyle:
+//	astyle --style=linux --indent-col1-comments --indent=tab --indent-preprocessor --pad-header --align-pointer=type --keep-one-line-blocks --suffix=none

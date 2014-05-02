@@ -171,7 +171,6 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (isWriter) {
 		// This rank is a writer.
 		assert(misalignments[rank] < datasizes[rank]);
-		// This rank is a writer
 		#ifdef DEBUG
 		if (rank>0 && writeranks[prevwriter+1]!=rank)
 			std::fprintf(stderr, "Error on Rank %u, writer ID: %u != %u\n", rank, writeranks[prevwriter+1], rank);
@@ -234,12 +233,14 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 
 	// file open error check
 	MPI_Info info;
+	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	MPI_Info_set(info, "IBM_largeblock_io", "true");
 	#else
+	*/
 	info = MPI::INFO_NULL;
-	#endif
+	//#endif
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
 	#ifdef DEBUG
@@ -375,14 +376,16 @@ void output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfile
 
 	// file open error check
 	MPI_Info info;
+	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	std::string key("IBM_largeblock_io");
 	std::string value("true");
 	MPI_Info_set(&info, key.c_str(), value.c_str());
 	#else
+	*/
 	info = MPI::INFO_NULL;
-	#endif
+	//#endif
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, subfilename, MPI::MODE_WRONLY|MPI::MODE_CREATE|MPI::MODE_EXCL, info, &output);
 	#ifdef DEBUG
