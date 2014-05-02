@@ -270,12 +270,12 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 	delete [] mat_para ;
 	mat_para=NULL;
 
-	unsigned long update_timer = rdtsc()-start;
-	if (rank==0) {
-		unsigned long total_update_time;
-		MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-		std::cout<<"total update time is "<<total_update_time<<std::endl;
-	}
+    unsigned long update_timer = rdtsc()-start;
+    unsigned long total_update_time;
+    MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+    if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
+	
+	
 }
 
 }
