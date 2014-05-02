@@ -95,7 +95,9 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 		#else
 		output(*grid2, filename);
 		#endif
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
+		#endif
 	}
 
 	if (dim == 3) {
@@ -106,7 +108,9 @@ void generate(int dim, char* filename, int seeds, int nthreads)
 		#else
 		output(*grid3, filename);
 		#endif
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
+		#endif
 	}
 
 }
@@ -226,8 +230,10 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 		exit(0);
 	}
 
+	#ifndef SILENT
 	static int iterations = 1;
 	if (rank==0) print_progress(0, steps, iterations);
+	#endif
 	for (int step=0; step<steps; step++) {
 		for (int sublattice=0; sublattice!= 2; sublattice++) {
 			for (int i=0; i!= nthreads ; i++ ) {
@@ -261,9 +267,13 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 
 			ghostswap(grid); // once looped over a "color", ghostswap.
 		}//loop over color
+		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
+		#endif
 	}//loop over step
+	#ifndef SILENT
 	++iterations;
+	#endif
 
 	delete [] p_threads ;
 	p_threads=NULL;
@@ -277,8 +287,8 @@ template <int dim> void update(MMSP::grid<dim, int>& grid, int steps, int nthrea
 }
 
 }
-#endif
 
+#ifndef SILENT
 void print_progress(const int step, const int steps, const int iterations)
 {
 	char* timestring;
@@ -302,7 +312,9 @@ void print_progress(const int step, const int steps, const int iterations)
 							<<" (File "<<std::setw(5)<<std::right<<iterations*steps<<")."<<std::endl;
 	} else if ((20 * step) % steps == 0) std::cout<<"• "<<std::flush;
 }
+#endif
 
+#endif
 
 #include"MMSP.main.hpp"
 

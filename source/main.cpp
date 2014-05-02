@@ -278,7 +278,9 @@ int main(int argc, char* argv[]) {
 			// tessellate
 			unsigned long timer = rdtsc();
 			GRID2D* grid=MMSP::generate<2>(0, nthreads);
+			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
+			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
@@ -303,7 +305,9 @@ int main(int argc, char* argv[]) {
 			#else
 			allio=iotimer;
 			#endif
+			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+			#endif
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
@@ -337,7 +341,9 @@ int main(int argc, char* argv[]) {
 				#else
 				allio = iotimer;
 				#endif
+				#ifndef SILENT
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				#endif
 				outstr.str("");
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
@@ -347,7 +353,9 @@ int main(int argc, char* argv[]) {
 			// tessellate
 			unsigned long timer = rdtsc();
 			GRID3D* grid=MMSP::generate<3>(0, nthreads);
+			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<(rdtsc() - timer)/clock_rate<<" sec."<<std::endl;
+			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
 			for (unsigned int i=0; i<outfile.length(); i++)
@@ -367,7 +375,9 @@ int main(int argc, char* argv[]) {
 			#else
 			allio = iotimer;
 			#endif
+			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+			#endif
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
@@ -401,7 +411,9 @@ int main(int argc, char* argv[]) {
 				#else
 				allio = iotimer;
 				#endif
+				#ifndef SILENT
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				#endif
 				outstr.str("");
 			}
 			if (grid!=NULL) delete grid; grid=NULL;
