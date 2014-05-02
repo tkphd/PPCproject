@@ -42,9 +42,11 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		while (number_of_fields % np) --number_of_fields;
 		#endif
 		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0, 0, edge, 0, edge);
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<"),"
 												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)
 												<<" with "<<number_of_fields<<" grains."<<std::endl;
+		#endif
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
 		#endif
@@ -54,7 +56,9 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		std::exit(1);
 		#endif
 		tessellate<dim,float>(*grid, number_of_fields, nthreads);
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
+		#endif
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
@@ -67,9 +71,11 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		while (number_of_fields % np) --number_of_fields;
 		#endif
 		MMSP::grid<dim,MMSP::sparse<float> >* grid = new MMSP::grid<dim,MMSP::sparse<float> >(0,0,edge,0,edge,0,edge);
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Grid origin: ("<<g0(*grid,0)<<','<<g0(*grid,1)<<','<<g0(*grid,2)<<"),"
 												<<" dimensions: "<<g1(*grid,0)-g0(*grid,0)<<" × "<<g1(*grid,1)-g0(*grid,1)<<" × "<<g1(*grid,2)-g0(*grid,2)
 												<<" with "<<number_of_fields<<" grains."<<std::endl;
+		#endif
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
 		#endif
@@ -82,7 +88,9 @@ MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Tessellation complete."<<std::endl;
+		#endif
 		return grid;
 	}
 	return NULL;
@@ -106,7 +114,9 @@ void generate(int dim, char* filename, int seeds, int nthreads) {
 		#else
 		output(*grid2, filename);
 		#endif
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
+		#endif
 	}
 
 	if (dim == 3) {
@@ -117,7 +127,9 @@ void generate(int dim, char* filename, int seeds, int nthreads) {
 		#else
 		output(*grid3, filename);
 		#endif
+		#ifndef SILENT
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
+		#endif
 	}
 }
 
@@ -150,13 +162,17 @@ void* update_threads_helper( void * s )
 	const float mu = 1.0;
 	const float epsilon = 1.0e-8;
 
+	#ifndef SILENT
 	static int iterations = 1;
 	#ifdef DEBUG
 	if (iterations==1 && rank==0)
 		printf("CFL condition Co=%2.2f.\n", mu*eps*eps*dt/(dx((*ss->grid), 0)*dx((*ss->grid),0)));
 	#endif
+	#endif
 
+	#ifndef SILENT
  	if (rank==0) print_progress(0, ss->steps, iterations);
+ 	#endif
 
 	for (int step = 0; step < ss->steps; step++) {
 		// update grid must be overwritten each time
@@ -231,11 +247,15 @@ void* update_threads_helper( void * s )
 				}
 			}
 		} // Loop over nodes(grid)
+		#ifndef SILENT
 		if (rank==0) print_progress(step+1, ss->steps, iterations);
+		#endif
 		swap((*ss->grid), update);
 	} // Loop over steps
 	ghostswap((*ss->grid));
+	#ifndef SILENT
 	++iterations;
+	#endif
 
 
 	pthread_exit(0);
@@ -291,13 +311,17 @@ void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 	const float mu = 1.0;
 	const float epsilon = 1.0e-8;
 
+	#ifndef SILENT
 	static int iterations = 1;
 	#ifdef DEBUG
 	if (iterations==1 && rank==0)
 		printf("CFL condition Co=%2.2f.\n", mu*eps*eps*dt/(dx(grid, 0)*dx(grid,0)));
 	#endif
+	#endif
 
+	#ifndef SILENT
  	if (rank==0) print_progress(0, steps, iterations);
+ 	#endif
 
 	for (int step = 0; step < steps; step++) {
 		// update grid must be overwritten each time
@@ -372,15 +396,20 @@ void update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthreads)
 				}
 			}
 		} // Loop over nodes(grid)
+		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
+		#endif
 		swap(grid, update);
 	} // Loop over steps
 	ghostswap(grid);
+	#ifndef SILENT
 	++iterations;
+	#endif
 }
 
 } // namespace MMSP
 
+#ifndef SILENT
 void print_progress(const int step, const int steps, const int iterations) {
 	char* timestring;
 	static unsigned long tstart;
@@ -403,6 +432,7 @@ void print_progress(const int step, const int steps, const int iterations) {
 							<<" (File "<<std::setw(5)<<std::right<<iterations*steps<<")."<<std::endl;
 	} else if ((20 * step) % steps == 0) std::cout<<"• "<<std::flush;
 }
+#endif
 
 #endif
 

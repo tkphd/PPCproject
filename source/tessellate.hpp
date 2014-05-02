@@ -1131,7 +1131,9 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 	np=MPI::COMM_WORLD.Get_size();
 	#endif
 	unsigned long int pseudorand_seed = time(NULL);
+	#ifndef SILENT
 	if (id == 0) std::cout << "Master seed is " << std::setw(10) << std::right << pseudorand_seed << ". <---- Record this value!" << std::endl;
+	#endif
 	#ifdef MPI_VERSION
 	pseudorand_seed = pseudorand_seed / (id + 1);
 	#endif
@@ -1219,7 +1221,9 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 	int vote=1;
 	int total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+	#ifndef SILENT
 	if (id==0) std::cout<<"Synchronized seeds on "<<total_procs<<" ranks."<<std::endl;
+	#endif
 	#endif
 
 	// Perform the actual tessellation
@@ -1230,7 +1234,9 @@ void tessellate(MMSP::grid<dim,T>& grid, const int& nseeds, const int& nthreads)
 	MPI::COMM_WORLD.Barrier();
 	total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+	#ifndef SILENT
 	if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
+	#endif
 	#endif
 } // tessellate
 
@@ -1244,7 +1250,9 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	np=MPI::COMM_WORLD.Get_size();
 	#endif
 	unsigned long int pseudorand_seed = time(NULL);
+	#ifndef SILENT
 	if (id == 0) std::cout << "Master seed is " << std::setw(10) << std::right << pseudorand_seed << ". <---- Record this value!" << std::endl;
+	#endif
 	#ifdef MPI_VERSION
 	pseudorand_seed = pseudorand_seed / (id + 1);
 	#endif
@@ -1332,7 +1340,9 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	int vote=1;
 	int total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+	#ifndef SILENT
 	if (id==0) std::cout<<"Synchronized seeds on "<<total_procs<<" ranks."<<std::endl;
+	#endif
 	#endif
 
 	// Perform the actual tessellation
@@ -1343,7 +1353,9 @@ void tessellate(MMSP::grid<dim, MMSP::sparse<T> >& grid, const int& nseeds, cons
 	MPI::COMM_WORLD.Barrier();
 	total_procs=0;
 	MPI::COMM_WORLD.Allreduce(&vote, &total_procs, 1, MPI_INT, MPI_SUM);
+	#ifndef SILENT
 	if (id==0) std::cout<<"Tessellated the domain on "<<total_procs<<" ranks."<<std::endl;
+	#endif
 	#endif
 } // tessellate
 
