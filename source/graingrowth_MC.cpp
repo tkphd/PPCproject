@@ -51,7 +51,7 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 		std::cerr<<"Error: CCNI requires MPI."<<std::endl;
 		std::exit(1);
 		#endif
-		tessellate<dim,int>(*grid, number_of_fields);
+		tessellate<dim,int>(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif
@@ -69,7 +69,7 @@ MMSP::grid<dim,int >* generate(int seeds, int nthreads)
 		number_of_fields /= np;
 		#endif
 
-		tessellate<dim,int >(*grid, number_of_fields);
+		tessellate<dim,int >(*grid, number_of_fields, nthreads);
 		#ifdef MPI_VERSION
 		MPI::COMM_WORLD.Barrier();
 		#endif

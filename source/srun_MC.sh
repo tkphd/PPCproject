@@ -18,4 +18,4 @@
 
 # srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_MC.out --init 3 voronoi.0000.dat
 # srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_MC.out voronoi.0000.dat 1500 50
-srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_MC.out --nonstop 3 voronoi.0000.dat 1500 100 4
+srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/PCP4/PCP4kllt/project/source/./q_MC.out --nonstop 3 voronoi.0000.dat 1500 100 2

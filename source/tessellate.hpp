@@ -96,19 +96,18 @@ namespace MMSP
 #ifdef MPI_VERSION
 
 #ifdef PHASEFIELD
-
 template<int dim, typename T>
 struct exact_voronoi_thread_para {
-	MMSP::grid<dim, sparse<T> >* grid;
-	std::vector<std::vector<Point<int> > >* seeds;
+	MMSP::grid<dim,sparse<T> >* grid;
+	const std::vector<std::vector<Point<int> > >* seeds;
 	unsigned long nstart;
 	unsigned long nend;
 };
 
 template<int dim, typename T>
-exact_voronoi_threads_helper( void* s )
+void * exact_voronoi_threads_helper( void* s )
 {
-	exact_voronoi_thread_para* ss = ( exact_voronoi_thread_para* ) s ;
+	exact_voronoi_thread_para<dim,T>* ss = ( exact_voronoi_thread_para<dim,T>* ) s ;
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
 	int np=MPI::COMM_WORLD.Get_size();
@@ -171,18 +170,19 @@ exact_voronoi_threads_helper( void* s )
 		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
 			int identity=-1;
 			unsigned int rank=*i;
-			for (unsigned int j=0; j<rank; j++) identity+=*(ss->seeds)[j].size();
-			for (unsigned int s=0; s<*(ss->seeds)[rank].size(); ++s) {
+			for (unsigned int j=0; j<rank; j++) identity+=(*(ss->seeds))[j].size();
+			for (unsigned int s=0; s<(*(ss->seeds))[rank].size(); ++s) {
 				++identity;
-				Point<int> seed=*(ss->seeds)[rank][s];
+				Point<int> seed=(*(ss->seeds))[rank][s];
 				double distance=radius<dim,int>(x,seed);
 				if (distance<min_distance) {
 					min_distance=distance;
 					min_identity=identity;
 				}
 				// Check coordinates across periodic boundary
-				for (int d=0; d<dim; d++) check_boundary(seed[d], x0(*(ss->grid),d), x1(*(ss->grid),d), b0(*(ss->grid),d), b1(*(ss->grid),d));
-				if (seed==*(ss->seeds)[rank][s]) continue;
+				for (int d=0; d<dim; d++)
+					check_boundary(seed[d], x0((*(ss->grid)),d), x1(*(ss->grid),d), b0(*(ss->grid),d), b1(*(ss->grid),d));
+				if (seed==(*(ss->seeds))[rank][s]) continue;
 				distance=radius<dim,int>(x,seed);
 				if (distance<min_distance) {
 					min_distance=distance;
@@ -190,7 +190,7 @@ exact_voronoi_threads_helper( void* s )
 				}
 			}
 		}
-		set(*(ss->grid)(n), min_identity) = 1.;
+		set((*(ss->grid))(n), min_identity) = 1.;
 	}
 
 	pthread_exit(0);
@@ -198,50 +198,49 @@ exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim, sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
+void exact_voronoi_threads(MMSP::grid<dim,sparse<T> >& grid, const std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
 	pthread_t* p_threads = new pthread_t[ nthreads];
-	exact_voronoi_thread_para* voronoi_para = new exact_voronoi_thread_para[nthreads];
 	pthread_attr_t attr;
 	pthread_attr_init (&attr);
-	unsigned long nincr = nodes(grid)/nthreads;
+
+	const unsigned long nincr = nodes(grid)/nthreads;
+
+	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 	unsigned long ns = 0;
-
-
 
 	for (int i=0; i!= nthreads ; i++ ) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
 		voronoi_para[i].nend=ns;
 
-		voronoi_para[i].grid= &grid;
-		voronoi_para[i].seeds= &seeds;
+		voronoi_para[i].grid = &grid;
+		voronoi_para[i].seeds = &seeds;
 
-
-		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper, (void*) &voronoi_para[i] );
+		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper<dim,T>, (void*) &voronoi_para[i] );
 	}
 
-	for (int i=0; i!= nthreads ; i++) {
+	for (int i=0; i!= nthreads ; i++)
 		pthread_join(p_threads[i], NULL);
-	}
 
 	delete [] p_threads ;
 	delete [] voronoi_para ;
 }
 
 #else
+
 template<int dim, typename T>
 struct exact_voronoi_thread_para {
 	MMSP::grid<dim,T>* grid;
-	std::vector<std::vector<Point<int> > >* seeds;
+	const std::vector<std::vector<Point<int> > >* seeds;
 	unsigned long nstart;
 	unsigned long nend;
 };
 
 template<int dim, typename T>
-exact_voronoi_threads_helper( void* s )
+void * exact_voronoi_threads_helper( void* s )
 {
-	exact_voronoi_thread_para* ss = ( exact_voronoi_thread_para* ) s ;
+	exact_voronoi_thread_para<dim,T>* ss = ( exact_voronoi_thread_para<dim,T>* ) s ;
 	// Exact Voronoi tessellation from seeds, based on Euclidean distance function. Runtime is O(Nseeds*L*W*H).
 	int id=MPI::COMM_WORLD.Get_rank();
 	int np=MPI::COMM_WORLD.Get_size();
@@ -304,18 +303,19 @@ exact_voronoi_threads_helper( void* s )
 		for (std::set<unsigned int>::const_iterator i=neighbors.begin(); i!=neighbors.end(); i++) {
 			int identity=-1;
 			unsigned int rank=*i;
-			for (unsigned int j=0; j<rank; j++) identity+=*(ss->seeds)[j].size();
-			for (unsigned int s=0; s<*(ss->seeds)[rank].size(); ++s) {
+			for (unsigned int j=0; j<rank; j++) identity+=(*(ss->seeds))[j].size();
+			for (unsigned int s=0; s<(*(ss->seeds))[rank].size(); ++s) {
 				++identity;
-				Point<int> seed=*(ss->seeds)[rank][s];
+				Point<int> seed=(*(ss->seeds))[rank][s];
 				double distance=radius<dim,int>(x,seed);
 				if (distance<min_distance) {
 					min_distance=distance;
 					min_identity=identity;
 				}
 				// Check coordinates across periodic boundary
-				for (int d=0; d<dim; d++) check_boundary(seed[d], x0(*(ss->grid),d), x1(*(ss->grid),d), b0(*(ss->grid),d), b1(*(ss->grid),d));
-				if (seed==*(ss->seeds)[rank][s]) continue;
+				for (int d=0; d<dim; d++)
+					check_boundary(seed[d], x0((*(ss->grid)),d), x1(*(ss->grid),d), b0(*(ss->grid),d), b1(*(ss->grid),d));
+				if (seed==(*(ss->seeds))[rank][s]) continue;
 				distance=radius<dim,int>(x,seed);
 				if (distance<min_distance) {
 					min_distance=distance;
@@ -323,7 +323,7 @@ exact_voronoi_threads_helper( void* s )
 				}
 			}
 		}
-		set(*(ss->grid)(n), min_identity) = 1.;
+		(*(ss->grid))(n) = reinterpret_cast<T>(min_identity);
 	}
 
 	pthread_exit(0);
@@ -331,33 +331,30 @@ exact_voronoi_threads_helper( void* s )
 } // exact_voronoi
 
 template<int dim, typename T>
-void exact_voronoi_threads(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds,
-                           int nthreads)
+void exact_voronoi_threads(MMSP::grid<dim,T>& grid, const std::vector<std::vector<Point<int> > >& seeds, const int& nthreads)
 {
 	pthread_t* p_threads = new pthread_t[ nthreads];
-	exact_voronoi_thread_para* voronoi_para = new exact_voronoi_thread_para[nthreads];
 	pthread_attr_t attr;
 	pthread_attr_init (&attr);
-	unsigned long nincr = nodes(grid)/nthreads;
+
+	const unsigned long nincr = nodes(grid)/nthreads;
+
+	exact_voronoi_thread_para<dim,T>* voronoi_para = new exact_voronoi_thread_para<dim,T>[nthreads];
 	unsigned long ns = 0;
-
-
 
 	for (int i=0; i!= nthreads ; i++ ) {
 		voronoi_para[i].nstart=ns;
 		ns+=nincr;
 		voronoi_para[i].nend=ns;
 
-		voronoi_para[i].grid= &grid;
-		voronoi_para[i].seeds= &seeds;
+		voronoi_para[i].grid = &grid;
+		voronoi_para[i].seeds = &seeds;
 
-
-		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper, (void*) &voronoi_para[i] );
+		pthread_create(&p_threads[i], &attr, exact_voronoi_threads_helper<dim,T>, (void*) &voronoi_para[i] );
 	}
 
-	for (int i=0; i!= nthreads ; i++) {
+	for (int i=0; i!= nthreads ; i++)
 		pthread_join(p_threads[i], NULL);
-	}
 
 	delete [] p_threads ;
 	delete [] voronoi_para ;
