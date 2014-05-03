@@ -60,8 +60,10 @@ int main(int argc, char* argv[]) {
 
 	int nthreads = 1;
 	unsigned int rank=0;
+	unsigned int np=0;
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
+	np = MPI::COMM_WORLD.Get_size();
 	#endif
 
 
@@ -281,9 +283,10 @@ int main(int argc, char* argv[]) {
 			// tessellate
 			GRID2D* grid=NULL;
 			init_cycles = MMSP::generate<2>(grid, 0, nthreads);
-			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
 			#ifndef SILENT
-			if (rank==0) std::cout<<"Finished tessellation in "<<init_cycles/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Finished tessellation in "<<double(init_cycles)/clock_rate<<" sec."<<std::endl;
+			#else
+			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
@@ -310,15 +313,18 @@ int main(int argc, char* argv[]) {
 			#else
 			allio=iocycles;
 			#endif
-			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
+			#else
+			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
 			#endif
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
 				comp_cycles = MMSP::update(*grid, increment, nthreads);
-				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(comp_cycles)/clock_rate<<std::endl;
+				unsigned long allcomp = 0;
+				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
+				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
 
 				// generate output filename
 				std::stringstream outstr;
@@ -363,9 +369,10 @@ int main(int argc, char* argv[]) {
 			// tessellate
 			GRID3D* grid=NULL;
 			init_cycles=MMSP::generate<3>(grid, 0, nthreads);
-			if (rank==0) std::cout<<"init_time(sec)\t"<<init_cycles<<std::endl;
 			#ifndef SILENT
-			if (rank==0) std::cout<<"Finished tessellation in "<<init_cycles/clock_rate<<" sec."<<std::endl;
+			if (rank==0) std::cout<<"Finished tessellation in "<<double(init_cycles)/clock_rate<<" sec."<<std::endl;
+			#else
+			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
@@ -398,7 +405,9 @@ int main(int argc, char* argv[]) {
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
 				comp_cycles += MMSP::update(*grid, increment, nthreads);
-				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(comp_cycles)/clock_rate<<std::endl;
+				unsigned long allcomp = 0;
+				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
+				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
 
 				// generate output filename
 				std::stringstream outstr;
