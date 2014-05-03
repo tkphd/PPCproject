@@ -86,7 +86,6 @@ unsigned long generate(int dim, char* filename, int seeds, int nthreads)
 	#ifdef MPI_VERSION
 	rank = MPI::COMM_WORLD.Get_rank();
 	#endif
-
 	unsigned long timer = 0;
 	if (dim == 2) {
 		MMSP::grid<2,int>* grid2=NULL;
@@ -115,6 +114,7 @@ unsigned long generate(int dim, char* filename, int seeds, int nthreads)
 		if (rank==0) std::cout<<"Wrote initial file to "<<filename<<"."<<std::endl;
 		#endif
 	}
+
 	return timer;
 }
 
