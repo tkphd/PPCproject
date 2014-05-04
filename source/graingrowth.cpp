@@ -18,12 +18,13 @@
 #include"tessellate.hpp"
 #include"output.cpp"
 
+#ifndef SILENT
 void print_progress(const int step, const int steps, const int iterations);
+#endif
 
 namespace MMSP {
 
 template <int dim>
-//MMSP::grid<dim,MMSP::sparse<float> >* generate(int seeds, int nthreads)
 unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, int nthreads)
 {
 	#if (defined CCNI) && (!defined MPI_VERSION)
@@ -247,8 +248,10 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
  	rank=MPI::COMM_WORLD.Get_rank();
 	#endif
 
+	#ifndef SILENT
 	static int iterations = 1;
  	if (rank==0) print_progress(0, steps, iterations);
+ 	#endif
 
 	unsigned long timer = 0;
 	for (int step = 0; step < steps; step++) {
@@ -282,12 +285,16 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
         delete [] p_threads ;
         delete [] update_para ;
 
+		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
+		#endif
 		swap(grid, update);
 		timer += rdtsc() - comptime;
 	} // Loop over steps
 	ghostswap(grid);
+	#ifndef SILENT
 	++iterations;
+	#endif
 	return timer;
 }
 
@@ -413,7 +420,7 @@ unsigned long update_old(MMSP::grid<dim, sparse<float> >& grid, int steps, int n
 
 } // namespace MMSP
 
-//#ifndef SILENT
+#ifndef SILENT
 void print_progress(const int step, const int steps, const int iterations) {
 	char* timestring;
 	static unsigned long tstart;
@@ -436,7 +443,7 @@ void print_progress(const int step, const int steps, const int iterations) {
 							<<" (File "<<std::setw(5)<<std::right<<iterations*steps<<")."<<std::endl;
 	} else if ((20 * step) % steps == 0) std::cout<<"• "<<std::flush;
 }
-//#endif
+#endif
 
 #endif
 

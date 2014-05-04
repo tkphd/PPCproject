@@ -283,16 +283,18 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 			fprintf(stderr, "%3d: %s\n", rank, error_string);
 		}
 		writecycles = rdtsc() - writecycles;
+	} else {
+		ws = 0; // not a writer
 	}
 
+	/*
 	unsigned long allcycles = 0;
 	MPI_Allreduce(&writecycles, &allcycles, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI::COMM_WORLD);
 	allcycles /= nwriters;
 	assert(allcycles>0);
+	*/
 
 	MPI::COMM_WORLD.Barrier();
-	MPI_Offset off;
-	MPI_File_get_size(output, &off);
 	MPI_File_close(&output);
 	if (recvrequests!=NULL) {
 		delete [] recvrequests;
@@ -317,7 +319,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 		filebuffer=NULL;
 	}
 
-	return double(off)/allcycles; // bytes per cycle -- needs clock rate info
+	return (ws>0)?double(ws)/writecycles:0.0; // bytes per cycle -- needs clock rate info for B/s.
 }
 
 template <int dim,typename T>
@@ -371,7 +373,6 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 
 	// file open error check
 	MPI_Info info = MPI::INFO_NULL;
-	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	std::string key("IBM_largeblock_io");
@@ -380,7 +381,6 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	#else
 	info = MPI::INFO_NULL;
 	#endif
-	*/
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, subfilename, MPI::MODE_WRONLY|MPI::MODE_CREATE, info, &output);
 	if (mpi_err != MPI_SUCCESS) {
@@ -477,8 +477,10 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	// Write buffer to disk
 	MPI_File_sync(output);
 	MPI_Barrier(subcomm);
+	unsigned long writecycles = 0;
 	mpi_err = MPI_File_iwrite_at(output, offsets[subrank], databuffer, datasizes[subrank], MPI_CHAR, &request);
 	MPI_Wait(&request, &status);
+	writecycles = rdtsc() - writecycles;
 	if (mpi_err != MPI_SUCCESS) {
 		char error_string[256];
 		int length_of_error_string=256;
@@ -512,6 +514,7 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	*/
 	MPI::COMM_WORLD.Barrier();
 	MPI_File_close(&output);
+
 	delete [] offsets;
 	offsets=NULL;
 	delete [] datasizes;
