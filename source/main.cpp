@@ -343,9 +343,9 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw += MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw += MMSP::output(*grid, filename);
+				comp_bw = MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;
@@ -367,7 +367,7 @@ int main(int argc, char* argv[]) {
 		if (dim == 3) {
 			// tessellate
 			GRID3D* grid=NULL;
-			init_cycles=MMSP::generate<3>(grid, 0, nthreads);
+			init_cycles = MMSP::generate<3>(grid, 0, nthreads);
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<double(init_cycles)/clock_rate<<" sec."<<std::endl;
 			#else
@@ -403,7 +403,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				comp_cycles += MMSP::update(*grid, increment, nthreads);
+				comp_cycles = MMSP::update(*grid, increment, nthreads);
 				unsigned long allcomp = 0;
 				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
@@ -426,9 +426,9 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw += MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw += MMSP::output(*grid, filename);
+				comp_bw = MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;
