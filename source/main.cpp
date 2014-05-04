@@ -338,9 +338,9 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw += MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw += MMSP::output(*grid, filename);
+				comp_bw = MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;
@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
 		if (dim == 3) {
 			// tessellate
 			GRID3D* grid=NULL;
-			init_cycles=MMSP::generate<3>(grid, 0, nthreads);
+			init_cycles = MMSP::generate<3>(grid, 0, nthreads);
 			if (rank==0) std::cout<<"init_time(sec)\t"<<init_cycles<<std::endl;
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<init_cycles/clock_rate<<" sec."<<std::endl;
@@ -397,7 +397,7 @@ int main(int argc, char* argv[]) {
 
 			// perform computation
 			for (int i = iterations_start; i < steps; i += increment) {
-				comp_cycles += MMSP::update(*grid, increment, nthreads);
+				comp_cycles = MMSP::update(*grid, increment, nthreads);
 				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(comp_cycles)/clock_rate<<std::endl;
 
 				// generate output filename
@@ -418,9 +418,9 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw += MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw += MMSP::output(*grid, filename);
+				comp_bw = MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;
