@@ -85,7 +85,8 @@ A subgrid is divided into sublattices as in Figure 1, where only the lattice sit
 The key point is that the 2 neighbors of a sublattice-0 lattice site do not include any other sublattice-0 lattice sites.
 The parallel Monte Carlo Potts grain growth algorithm for one sweep can now be written as follows:
 
-\begin{minipage}{0.475\textwidth}\centering
+\begin{minipage}{0.475\textwidth}
+\begin{center}
 \begin{lstlisting}
 Loop over sublattice (i)
   Loop over all lattice sites of sublattice i within my subgrid
@@ -96,7 +97,9 @@ Loop over sublattice (i)
   Exchange sites along edge of my subgrid with neighboring processors to acquire current neighbor spin values.
 End color loop
 \end{lstlisting}
-\captionof{lstlisting}{Monte Carlo algorithm}
+\captionof{lstlisting}{Monte Carlo algorithm.\label{lst:mc}}
+\end{center}
+\vskip\baselineskip
 \end{minipage}
 
 This algorithm works for both 2-D and 3-D lattices. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
@@ -119,19 +122,53 @@ the models have a characteristic length scale $\mathcal{O}(1\ \mu\mathrm{m})$, w
 The interfaces between adjacent cells are modeled through the smooth, continuous transition of an order parameter $\phi$ between one (existence) and zero (absence).
 The model implemented for this project assigns one order parameter to each grain, and each node in the computational mesh contains a sparse vector $\{\phi\}$, ranging in size between one and 27 entries (in 3-D) \cite{Steinbach1999}.
 Grain growth in these simulations occurs by numerically integrating the parabolic partial differential equation-of-motion,
-\begin{align*}
+\begin{align}
 \frac{\partial\phi_i}{\partial t} = -\frac{\mu}{S}\sum\limits_{j\neq i}^S\Bigg[
-  &\sum\limits_{k\neq i}^S\bigg(\frac{1}{2}\varepsilon^2\nabla^2\phi_k+\omega|\phi_k|\bigg)\\
-  -&\sum\limits_{\ell\neq j}^S\bigg(\frac{1}{2}\varepsilon^2\nabla^2\phi_\ell+\omega|\phi_\ell|\bigg)\Bigg],
-\end{align*}
+  &\sum\limits_{k\neq i}^S\bigg(\frac{1}{2}\varepsilon^2\nabla^2\phi_k+\omega|\phi_k|\bigg)\notag\\
+  -&\sum\limits_{\ell\neq j}^S\bigg(\frac{1}{2}\varepsilon^2\nabla^2\phi_\ell+\omega|\phi_\ell|\bigg)\Bigg],\label{eqn:pf}
+\end{align}
 using information from the $S$-dimensional sparse vector $\{\phi\}$ at each point, with interfacial mobility $\mu$ and model parameters $\varepsilon$ and $\omega$.
 The Laplacian operator $\nabla^2 = \frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2} + \frac{\partial^2}{\partial z^2}$;
 in each dimension, the Laplacian operator for a given order parameter is
-\[\frac{\partial^2\phi}{\partial x^2} \approx \frac{\phi_{i+1} - 2\phi_i + \phi_{i-1}}{2\Delta x^2},\]
-where the values $\phi_{i+1}$ and $\phi_{i-1}$ are read from the two neighbors of point $x$. 
-These second-order spatial derivatives are the reason this is not an embarasingly parallel algorithm.
-At the boundary of the grid stored on each MPI rank, values of $\phi\in S$ must be set in \emph{ghost cells} with data retrieved from the adjacent grid.
+\begin{equation}
+\frac{\partial^2\phi}{\partial x^2} \approx \frac{\Delta(\Delta\phi)}{\Delta x^2} = \frac{\phi_{i+1} - 2\phi_i + \phi_{i-1}}{2\Delta x^2},\label{eqn:laplacian}
+\end{equation}
 
+where the values $\phi_{i+1}$ and $\phi_{i-1}$ are read from the two neighbors of point $x$. 
+These second-order spatial derivatives are the reason this is not an embarassingly parallel algorithm.
+At the boundary of the grid stored on each MPI rank, values of $\phi\in S$ must be set in \emph{ghost cells} with data retrieved from the adjacent grid.
+The more MPI ranks, the more ghost data, and the higher the network load.
+This intercommunication of boundary values occurs after each numerical integration iteration; that is to say, the serial computation and parallel data synchronization occur at different times.
+Listing~\ref{lst:pf} summarizes the phase-field algorithm as-implemented for $T$ timesteps on a local grid containing $N$ nodes, using only one thread per MPI rank.
+\begin{minipage}{0.475\textwidth}
+\begin{center}
+\begin{lstlisting}
+void initialize(MMSP::grid);
+MMSP::sparse update(MMSP::grid, int);
+void ghostswap(MMSP::grid);
+void swap(MMSP::grid, MMSP::grid);
+
+int main()
+{
+  MMSP::grid pfgrid;
+  MMSP::grid newgrid;
+  initialize(pfgrid);
+  for (t=0; t<T; t++) {
+    ghostswap(pfgrid);
+    for (n=0; n<N; n++)
+      newgrid(n) = update(pfgrid, n);
+    swap(pfgrid, newgrid);
+  }
+  return 0;
+}
+\end{lstlisting}
+\captionof{lstlisting}{Phase-field algorithm.\label{lst:pf}}
+\end{center}
+\vskip\baselineskip
+\end{minipage}
+
+The independence of computation from communication and the increasing communication overhead associated with adding MPI ranks makes pthreading a favorable approach for maximizing performance in this model.
+To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nlo; n<nhi; n++}, with \texttt{nlo}$\geq0$ and \texttt{nhi}$<$\texttt{N} defined for each pthread.
 
 
 \label{LastPage}

@@ -170,7 +170,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI::COMM_WORLD.Barrier();
 	if (isWriter) {
 		// This rank is a writer.
-		assert(misalignments[rank] <= datasizes[rank]);
+		assert(misalignments[rank] < datasizes[rank]);
 		#ifdef DEBUG
 		if (rank>0 && writeranks[prevwriter+1]!=rank)
 			std::fprintf(stderr, "Error on Rank %u, writer ID: %u != %u\n", rank, writeranks[prevwriter+1], rank);
