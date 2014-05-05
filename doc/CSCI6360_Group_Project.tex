@@ -6,9 +6,10 @@
 \lhead{T.~Keller, Y.~Tan, K.~Huang, and C.~Li}
 \rhead{CSCI 6360 Group Project}
 \cfoot{\thepage/\pageref{LastPage}}
-\renewcommand{\headrulewidth}{0.01in} \renewcommand{\footrulewidth}{0.01in}
 \frenchspacing
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \definecolor{codebg}{gray}{0.8}
+\renewcommand{\headrulewidth}{0.01in} \renewcommand{\footrulewidth}{0.01in}
 \newcommand{\code}[1]{\colorbox{codebg}{\texttt{\footnotesize{#1}}}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
@@ -42,11 +43,12 @@ May 8, 2014
 \begin{abstract}
 The Mesoscale Microstructure Simulation Project (MMSP) is a C++ code for parallel simulation of systems of interest in materials science using kinetic Monte Carlo, phase-field, and similar methods.\footnote{\url{http://matforge.org/mmsp} and \url{http://github.com/mesoscale/mmsp}}
 To date, MMSP has been tested and used extensively on workstation-class machines, occasionally on clusters (such as the CCI Opteron cluster), and almost never on supercomputers.
-The primary obstacle to using MMSP on the AMOS, CCI's Blue Gene/Q, is its parallel I/O performance:
+The primary obstacle to using MMSP on AMOS, CCI's Blue Gene/Q, is its parallel I/O performance:
 while the calculations finish, either the program locks up when writing to disk, or large chunks of the data are never written.
 \end{abstract}
 
 \begin{multicols}{2}
+\subsection*{Introduction}
 The Mesoscale Microstructure Simulation Project (MMSP, \url{http://matforge.org/mmsp} and \url{http://github.com/mesoscale/mmsp}) is a C++ code for parallel simulation of systems of interest in materials science using kinetic Monte Carlo, phase-field, and similar methods.
 MMSP implements a 3-dimensional grid class, with back-end support for parallel synchronization and file I/O using MPI.
 This grid facilitates computation of spatial derivatives by exchanging ``ghost'' cells between spatially adjacent ranks:
@@ -66,13 +68,6 @@ On AMOS, the GPFS has a blocksize of 8MB, while the MPI ranks may only write a f
 This produces contention for a common GPFS block between thousands of processors!
 Efforts are underway to implement a two-stage accumulate-and-write output strategy, wherein a few MPI ranks gather data from the upstream ranks that would contend for the same block;
 only the accumulator ranks write to disk, once their output buffers are full.
-
-One goal of this group project is to resolve the file IO problem afflicting MMSP on large-scale parallel machines.
-This will be done by implementing a number of different IO strategies: 
-($\mathbf{1}$) Separate IO from each rank to its own file,
-($\mathbf{2}$) Separate block-aligned IO from accumulator ranks to separate files,
-($\mathbf{3}$) Block-aligned IO from accumulator ranks to shared files (between 2 and \texttt{datasize/blocksize} files), and
-($\mathbf{4}$) Block-aligned IO from accumulator ranks to a single file.
 
 In addition to the grid class, MMSP provides a number of example cases for scientifically interesting problems.
 These are typically computationally demanding, with many floating-point operations to perform for each voxel in the grid.
