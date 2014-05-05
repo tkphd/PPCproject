@@ -64,13 +64,14 @@ To date, MMSP has been tested and used extensively on workstation-class machines
 Past efforts at MPI-IO have used \texttt{MPI\_File\_iwrite\_shared} and \texttt{MPI\_File\_iwrite\_at}, with default (\texttt{MPI\_NULL}) hints.
 The code had not previously taken the underlying filesystem into consideration.
 On AMOS, the GPFS has a blocksize of 8MB, while the MPI ranks may only write a few KB each.
-This produced contention for a common GPFS block between thousands of processors.
+This produced contention for a common GPFS block between thousands of processors and, ultimately, failure to write anything at all.
 We chose to address this problem by implementing an explicit two-stage accumulate-and-write output function, wherein a few MPI ranks gather data from the upstream ranks that would contend for the same block;
 only the accumulator ranks write to disk, once their output buffers are full.
 
 
 \section{Algorithms}
 We selected two strong-scaling grain growth models -- Potts Monte Carlo and phase-field -- for comparison.
+
 \subsection*{Potts Monte Carlo Model}
 The overall grid is portioned in to different local grids so that each processor is assigned a contiguous subgrid.
 In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box.
@@ -105,13 +106,13 @@ End color loop
 This algorithm works for both 2-D and 3-D lattices. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
 
 
-\begin{minipage}{0.45\textwidth}\centering
-  \includegraphics[height=1.5in]{mc-fig-01}
+\begin{minipage}{0.475\textwidth}\centering
+  \includegraphics[height=1.75in]{mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
 \end{minipage}
 
-\begin{minipage}{0.45\textwidth}\centering
-  \includegraphics[height=0.75\textheight]{mc-fig-02}
+\begin{minipage}{0.475\textwidth}\centering
+  \includegraphics[height=6.5in]{mc-fig-02}
   \captionof{figure}{\emph{No caption provided.}\label{fig:mc2}}
 \end{minipage}
 
@@ -134,7 +135,7 @@ in each dimension, the Laplacian operator for a given order parameter is
 \frac{\partial^2\phi}{\partial x^2} \approx \frac{\Delta(\Delta\phi)}{\Delta x^2} = \frac{\phi_{i+1} - 2\phi_i + \phi_{i-1}}{2\Delta x^2},\label{eqn:laplacian}
 \end{equation}
 
-where the values $\phi_{i+1}$ and $\phi_{i-1}$ are read from the two neighbors of point $x$. 
+where the values $\phi_{i+1}$ and $\phi_{i-1}$ are read from the two neighbors of point $i$. 
 These second-order spatial derivatives are the reason this is not an embarassingly parallel algorithm.
 At the boundary of the grid stored on each MPI rank, values of $\phi\in S$ must be set in \emph{ghost cells} with data retrieved from the adjacent grid.
 The more MPI ranks, the more ghost data, and the higher the network load.
@@ -170,6 +171,37 @@ int main()
 The independence of computation from communication and the increasing communication overhead associated with adding MPI ranks makes pthreading a favorable approach for maximizing performance in this model.
 To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nlo; n<nhi; n++}, with \texttt{nlo}$\geq0$ and \texttt{nhi}$<$\texttt{N} defined for each pthread.
 
+
+\subsection*{Two-Step I/O}
+The stock MMSP distribution comes with an \texttt{output} function which synchronizes data sizes across all MPI ranks, sets a local offset, then calls \texttt{MPI\_File\_iwrite\_at} with a matching \texttt{MPI\_Wait}.
+The function works nicely for relatively small problems:
+on the CCI Opteron cluster, grids of $400^3$ nodes wrote to disk on up to $192$ MPI ranks.
+However, the stock function has never worked on our Blue Gene systems: neither the Blue Gene/P nor AMOS ever wrote an MMSP file to disk.
+Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
+filesizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
+Our working hypothesis for AMOS's failure to write is that dividing the smaller files among thousands of processors created extreme contention for common blocks on the parallel filesystem, or else multiple GPFS servers attempted to allocate space for the same block.
+
+
+
+
+\section{Results}
+
+\section{Analysis}
+
+\section{Conclusions}
+
+
+\section{Contributions}
+\begin{itemize}
+ \item Kun Huang\\
+	pthread MC
+ \item Trevor Keller\\
+	serial PF, MPI-IO
+ \item Congrui Li\\
+	pthread PF
+ \item Yixuan Tan\\
+	serial MC
+\end{itemize}
 
 \label{LastPage}
 \begin{footnotesize}
