@@ -1,7 +1,8 @@
 \documentclass[11pt]{article}
-\usepackage{fancyhdr,url,graphicx,courier,xcolor,multicol}
-\usepackage[top=1.2in,bottom=0.8in,left=0.75in,right=0.75in,headheight=.75in]{geometry}
+\usepackage{fancyhdr,url,graphicx,courier,xcolor,multicol,shadethm}
+\usepackage[top=1in,bottom=1in,left=0.75in,right=0.75in,headheight=.75in]{geometry}
 \usepackage[small,bf]{caption}
+\definecolor{shadethmcolor}{rgb}{0.96,0.96,0.96}
 \pagestyle{fancy}
 \lhead{T.~Keller, Y.~Tan, K.~Huang, and C.~Li}
 \rhead{CSCI 6360 Group Project}
@@ -48,7 +49,7 @@ while the calculations finish, either the program locks up when writing to disk,
 \end{abstract}
 
 \begin{multicols}{2}
-\subsection*{Introduction}
+\section{Introduction}
 The Mesoscale Microstructure Simulation Project (MMSP, \url{http://matforge.org/mmsp} and \url{http://github.com/mesoscale/mmsp}) is a C++ code for parallel simulation of systems of interest in materials science using kinetic Monte Carlo, phase-field, and similar methods.
 MMSP implements a 3-dimensional grid class, with back-end support for parallel synchronization and file I/O using MPI.
 This grid facilitates computation of spatial derivatives by exchanging ``ghost'' cells between spatially adjacent ranks:
@@ -79,6 +80,57 @@ Each code will write the data to disk after a set number of Monte Carlo Steps or
 The execution time, compute time, and IO time will be recorded, and performance will be computed in terms of FLOPS, memory bandwidth, and disk bandwidth.
 These measurements will form the basis for a write-up benchmarking the performance of the AMOS Blue Gene/Q and its GPFS filesystem.
 We intend to repeat these tests using up to 512 nodes on AMOS, and to produce a publication-quality report from this work.
-\end{multicols}
+
+\section{Algorithms}
+
+\subsection*{Potts Monte Carlo}
+The overall grid is portioned in to different local grids so that each processor is assigned a contiguous subgrid.
+In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box.
+Each processor also stores a copy of the narrow strips (or planes in three dimensions) of lattice sites that immediately adjoin its sub-domain and which are actually owned by neighboring processors.
+This allows a processor to check neighboring spin values of sites on the edge of its sub-domain.
+With these data structures, every processor can now simultaneously flip spins in its sub-domain without violating the rule of detailed balance, 
+so long as one processor does not choose a lattice site on an edge of its sub-domain at the same time the processor adjoining that edge does likewise.
+We enforce this restriction in our parallel Potts algorithm by ``slicing'' the subgrid as shown in Figure 1. 
+lattice site is represented by a square (not the corners of the square) and assigned a ``sublattice'' number, 0 or 1.
+
+\begin{minipage}{0.45\textwidth}\centering
+  \includegraphics[height=1.5in]{mc-fig-01}
+  \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
+\end{minipage}
+
+
+
+A subgrid is divided into sublattices as in Figure l, where only the lattice sites assigned to sublattice-0 are now shown as shaded.
+The key point is that the 2 neighbors of a sublattice-0 lattice site do not include any other sublattice-0 lattice sites.
+The parallel Monte Carlo Potts grain growth algorithm for one sweep can now be written as follows:
+\begin{minipage}{0.45\textwidth}\centering
+\begin{shadebox}
+\begin{itemize}
+  \item Loop over sublattice (i)
+  \begin{itemize}
+    \item Loop over all lattice sites of sublattice $i$\\ within my subgrid
+    \begin{itemize}
+      \item Pick a new spin value randomly.
+      \item Compute the energy change for the site\\ to change to the new spin.
+      \item Accept or reject the change based on\\ the Boltzmann criterion.
+    \end{itemize}
+    \item[*] End lattice site loop
+    \item Exchange sites along edge of my subgrid with\\ neighboring processors to acquire current\\ neighbor spin values.
+    \end{itemize}
+    \item[*] End color loop
+\end{itemize}
+\end{shadebox}
+\end{minipage}
+
+This algorithm works for both 2-D and 3-D lattices. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
+
+\begin{minipage}{0.45\textwidth}\centering
+  \includegraphics[height=0.95\textheight]{mc-fig-02}
+  \captionof{figure}{\emph{No caption provided.}\label{fig:mc2}}
+\end{minipage}
+
+\subsection*{Phase-Field}
+
 \label{LastPage}
+\end{multicols}
 \end{document}
