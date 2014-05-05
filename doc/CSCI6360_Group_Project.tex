@@ -14,7 +14,9 @@
 \newcommand{\code}[1]{\colorbox{codebg}{\texttt{\footnotesize{#1}}}}
 \lstset{basicstyle=\footnotesize\ttfamily,language=bash,backgroundcolor=\color{codebg},xleftmargin=0pt,breaklines=true,alsoletter={--,/,[,=},alsodigit={-},showstringspaces=false,breakindent=0em,prebreak={ \textbackslash},postbreak={\phantom{m}}}
 \usetikzlibrary{arrows,calc,backgrounds}
-\tikzstyle{na} = [rectangle,draw=blue,anchor=west]
+\tikzstyle{na} = [rectangle,draw=black,anchor=west]
+\tikzstyle{nb} = [rectangle,draw=blue,anchor=west]
+\tikzstyle{nz} = [rectangle,draw=red,anchor=west]
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 \centerline{\LARGE{\bfseries MMSP Compute and I/O Performance on AMOS}}
@@ -187,23 +189,23 @@ For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
 \begin{center}
 \begin{tikzpicture}[scale=0.5]
   \node[na](gh){MMSP Grid: Master Header};
-  \node[na] at ($(gh)+(-2,-1.125)$) {Type (scalar, vector, sparse; int, float)};
-  \node[na] at ($(gh)+(-2,-2.4)$) {Dimensions (1, 2, 3)};
-  \node[na] at ($(gh)+(-2,-3.7)$) {Fields (0 or 1)};
-  \node[na,text width=3cm] at ($(gh)+(-2,-5.9)$) {Length along $x$ Length along $y$ Length along $z$};
-  \node[na,text width=3cm] at ($(gh)+(-2,-9.0)$) {Spacing along $x$ Spacing along $y$ Spacing along $z$};
-  \node[na] at ($(gh)+(-2,-11.1)$) {Number of blocks};
-  \node[na](sh) at ($(gh)+(-5,-12.1875)$) {Block 0 Header};
-  \node[na,text width=3cm] at ($(sh)+(0.25,-2.1)$) {Position along $x$ Position along $y$ Position along $z$};
-  \node[na] at ($(sh)+(0.25,-4.2)$) {Number of nodes};
-  \node[na,minimum height=2cm,text width=3cm] at ($(sh)+(-2.75,-6.75)$) {Block 0 Data};
-  \node[na] at ($(sh)+(-2.75,-9.0625)$) {...};
-  \node[na](sn) at ($(sh)+(-2.75,-9.85)$) {Block N Header};
-  \node[na,text width=3cm] at ($(sn)+(0.25,-2.0625)$) {Position along $x$ Position along $y$ Position along $z$};
-  \node[na] at ($(sn)+(0.25,-4.125)$) {Number of nodes};
-  \node[na,minimum height=2cm,text width=3cm] at ($(sn)+(-2.75,-6.625)$) {Block N Data};
+  \node[na] at ($(gh)+(-2,-3\baselineskip)$) {Type (scalar, vector, sparse; int, float)};
+  \node[na] at ($(gh)+(-2,-6\baselineskip)$) {Dimensions (1, 2, 3)};
+  \node[na] at ($(gh)+(-2,-9\baselineskip)$) {Fields (0 or 1)};
+  \node[na,text width=3cm] at ($(gh)+(-2,-14\baselineskip)$) {Length along $x$ Length along $y$ Length along $z$};
+  \node[na,text width=3cm] at ($(gh)+(-2,-21\baselineskip)$) {Spacing along $x$ Spacing along $y$ Spacing along $z$};
+  \node[nb] at ($(gh)+(-2,-26\baselineskip)$) {Number of blocks};
+  \node[nb](sh) at ($(gh)+(-5,-29\baselineskip)$) {Block 0 Header};
+  \node[nb,text width=3cm] at ($(sh)+(0.25,-5\baselineskip)$) {Position along $x$ Position along $y$ Position along $z$};
+  \node[nb] at ($(sh)+(0.25,-10\baselineskip)$) {Number of nodes};
+  \node[nz,minimum height=2cm,text width=4cm] at ($(sh)+(-2.75,-16\baselineskip)$) {Block 0 Data};
+  \node[nz,minimum height=2\baselineskip,minimum width=4.25cm] at ($(sh)+(-2.75,-23\baselineskip)$) {...};
+  \node[nb](sn) at ($(sh)+(-2.75,-27\baselineskip)$) {Block N Header};
+  \node[nb,text width=3cm] at ($(sn)+(0.25,-5\baselineskip)$) {Position along $x$ Position along $y$ Position along $z$};
+  \node[nb] at ($(sn)+(0.25,-10\baselineskip)$) {Number of nodes};
+  \node[nz,minimum height=2cm,text width=4cm] at ($(sn)+(-2.75,-16\baselineskip)$) {Block N Data};
 \end{tikzpicture}
-\captionof{figure}{MMSP file format.\label{fig:file}}
+\captionof{figure}{MMSP file format. Fields surrounded by black text are ASCII, blue are binary, red are \texttt{zlib}-compressed binary.\label{fig:file}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
