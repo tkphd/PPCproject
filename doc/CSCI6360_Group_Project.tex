@@ -1,5 +1,5 @@
 \documentclass[11pt]{article}
-\usepackage{amsmath,amssymb,fancyhdr,url,graphicx,courier,xcolor,multicol,listings}
+\usepackage{amsmath,amssymb,fancyhdr,url,graphicx,courier,xcolor,multicol,listings,tikz}
 \usepackage[top=1in,bottom=1in,left=0.75in,right=0.75in,headheight=.75in]{geometry}
 \usepackage[small,bf]{caption}
 \definecolor{shadethmcolor}{rgb}{0.96,0.96,0.96}
@@ -13,6 +13,8 @@
 \renewcommand{\headrulewidth}{0.01in} \renewcommand{\footrulewidth}{0.01in}
 \newcommand{\code}[1]{\colorbox{codebg}{\texttt{\footnotesize{#1}}}}
 \lstset{basicstyle=\footnotesize\ttfamily,language=bash,backgroundcolor=\color{codebg},xleftmargin=0pt,breaklines=true,alsoletter={--,/,[,=},alsodigit={-},showstringspaces=false,breakindent=0em,prebreak={ \textbackslash},postbreak={\phantom{m}}}
+\usetikzlibrary{arrows,calc,backgrounds}
+\tikzstyle{na} = [rectangle,draw=blue,anchor=west]
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 \centerline{\LARGE{\bfseries MMSP Compute and I/O Performance on AMOS}}
@@ -71,6 +73,8 @@ only the accumulator ranks write to disk, once their output buffers are full.
 
 \section{Algorithms}
 We selected two strong-scaling grain growth models -- Potts Monte Carlo and phase-field -- for comparison.
+
+\subsection*{Voronoi Tessellation}
 
 \subsection*{Potts Monte Carlo Model}
 The overall grid is portioned in to different local grids so that each processor is assigned a contiguous subgrid.
@@ -176,7 +180,35 @@ To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nl
 The stock MMSP distribution comes with an \texttt{output} function which synchronizes data sizes across all MPI ranks, sets a local offset, then calls \texttt{MPI\_File\_iwrite\_at} with a matching \texttt{MPI\_Wait}.
 The function works nicely for relatively small problems:
 on the CCI Opteron cluster, grids of $400^3$ nodes wrote to disk on up to $192$ MPI ranks.
-However, the stock function has never worked on our Blue Gene systems: neither the Blue Gene/P nor AMOS ever wrote an MMSP file to disk.
+However, the stock function has never worked on our Blue Gene systems: neither the Blue Gene/P nor AMOS ever wrote a complete MMSP file to disk.
+In the rare case when the file had non-zero size, it was too small by an integer multiple of the size-per-rank expected: some ranks were simply barred from contributing to the file.
+For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
+\begin{minipage}{0.475\textwidth}
+\begin{center}
+\begin{tikzpicture}[scale=0.5]
+  \node[na](gh){MMSP Grid: Master Header};
+  \node[na] at ($(gh)+(-2,-1.125)$) {Type (scalar, vector, sparse; int, float)};
+  \node[na] at ($(gh)+(-2,-2.4)$) {Dimensions (1, 2, 3)};
+  \node[na] at ($(gh)+(-2,-3.7)$) {Fields (0 or 1)};
+  \node[na,text width=3cm] at ($(gh)+(-2,-5.9)$) {Length along $x$ Length along $y$ Length along $z$};
+  \node[na,text width=3cm] at ($(gh)+(-2,-9.0)$) {Spacing along $x$ Spacing along $y$ Spacing along $z$};
+  \node[na] at ($(gh)+(-2,-11.1)$) {Number of blocks};
+  \node[na](sh) at ($(gh)+(-5,-12.1875)$) {Block 0 Header};
+  \node[na,text width=3cm] at ($(sh)+(0.25,-2.1)$) {Position along $x$ Position along $y$ Position along $z$};
+  \node[na] at ($(sh)+(0.25,-4.2)$) {Number of nodes};
+  \node[na,minimum height=2cm,text width=3cm] at ($(sh)+(-2.75,-6.75)$) {Block 0 Data};
+  \node[na] at ($(sh)+(-2.75,-9.0625)$) {...};
+  \node[na](sn) at ($(sh)+(-2.75,-9.85)$) {Block N Header};
+  \node[na,text width=3cm] at ($(sn)+(0.25,-2.0625)$) {Position along $x$ Position along $y$ Position along $z$};
+  \node[na] at ($(sn)+(0.25,-4.125)$) {Number of nodes};
+  \node[na,minimum height=2cm,text width=3cm] at ($(sn)+(-2.75,-6.625)$) {Block N Data};
+\end{tikzpicture}
+\captionof{figure}{MMSP file format.\label{fig:file}}
+\end{center}
+\vskip\baselineskip
+\end{minipage}
+
+
 Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
 filesizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
 Our working hypothesis for AMOS's failure to write is that dividing the smaller files among thousands of processors created extreme contention for common blocks on the parallel filesystem, or else multiple GPFS servers attempted to allocate space for the same block.
