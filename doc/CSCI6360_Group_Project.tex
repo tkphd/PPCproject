@@ -330,8 +330,8 @@ a set of MPI ranks equal to the number of filesystem blocks to be written are la
 Non-aggregators send data to the aggregator immediately downstream, using \texttt{MPI\_Isend}.
 Once the file buffers are full, the aggregators write to disk.
 The procedure is represented schematically in Fig.~\ref{fig:bgqio}.
-It was designed to minimize data transmission by keeping the largest amount of data local to each aggregator as possible.
-The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \cite{Carothers2010,Carothers2011}.
+%It was designed to minimize data transmission by keeping the largest amount of data local to each aggregator as possible.
+The approach is similar to the ``reduced blocking I/O'' used in PHASTA \cite{Carothers2010,Carothers2011}.
 
 
 \begin{minipage}{0.475\textwidth}
@@ -491,22 +491,27 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
 \end{minipage}
 
 
-
+\newpage
 \section{Results}
 Each node on AMOS contains a 17-core PowerPC A2 processor, of which 16 cores are accessible to MPI.
 Each core provides hardware support for up to 4 threads, for a total capacity of 64 threads per node.
 For the purposes of analyzing the performance of our code, we ran simulations using the Potts Monte Carlo and phase-field models described in Sec.~\ref{sec:algo} using the configurations given in Table~\ref{tab:cond}.
 
 \begin{center}
-\begin{minipage}{0.45\textwidth}
-\captionof{table}{Summary of execution conditions on AMOS.\label{tab:cond}}
+\begin{minipage}{0.45\textwidth}\centering
+\captionof{table}{Summary of execution conditions on AMOS. \checkmark indicates success, $\times$ failure to exit cleanly within the $30$-minute window.\label{tab:cond}}
 \begin{footnotesize}
 \begin{tabular}{|cccc|cc|}\hline
 AMOS  	& MPI 	& pthreads & Total	& Monte	& Phase-\\
 Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
 ($N$)	& ($n$)	& ($p$)	& ($np$)	& success & success\\\hline
+32	& 32	& 64	& 4096	&\checkmark &\checkmark \\
+32	& 64	& 32	& 4096	&\checkmark &\checkmark \\
+32	& 128	& 16	& 4096	&\checkmark &\checkmark \\
+32	& 512	& 4	& 4096	&\checkmark &\checkmark \\
+32	& 2048	& 1	& 4096	&\checkmark &\checkmark \\\hline
 64	& 64	& 64	& 4096	&$\times$ &$\times$ \\
-64	& 128	& 32	& 4096	&\checkmark &$\times$ \\
+64	& 128	& 32	& 4096	&\checkmark &\checkmark \\
 64	& 256	& 16	& 4096	&\checkmark &\checkmark \\
 64	& 1024	& 4	& 4096	&\checkmark &\checkmark \\
 64	& 4096	& 1	& 4096	&\checkmark &\checkmark \\\hline
