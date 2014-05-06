@@ -47,8 +47,9 @@ template <typename T> int ilength(const T& i)
 }
 
 int main(int argc, char* argv[]) {
-	unsigned long exec_timer = rdtsc();
 	MMSP::Init(argc, argv);
+
+	unsigned long exec_cycles = rdtsc();
 
 	// check argument list
 	if (argc < 2) {
@@ -659,10 +660,12 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	MMSP::Finalize();
+	exec_cycles = exec_cycles - rdtsc();
+	unsigned long allexec;
+	MPI_Reduce(&exec_cycles, &allexec, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI::COMM_WORLD);
+	if (rank==0) std::cout<<"exec_time(sec)\t"<<double(exec_cycles)/(np*clock_rate)<<std::endl;
 
-	exec_timer = exec_timer - rdtsc();
-	if (rank==0) std::cout<<"exec_time(sec)\t"<<double(exec_timer)/clock_rate<<std::endl;
+	MMSP::Finalize();
 
 	return 0;
 }
