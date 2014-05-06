@@ -17,6 +17,11 @@
 \tikzstyle{na} = [rectangle,draw=black,anchor=west]
 \tikzstyle{nb} = [rectangle,draw=blue,anchor=west]
 \tikzstyle{nz} = [rectangle,draw=red,anchor=west]
+
+\tikzstyle{rank} = [draw,anchor=north,minimum size=2em]
+\tikzstyle{mblock} = [draw,anchor=north,fill=black!20!white,minimum width=2em,minimum height=0.5em]
+\tikzstyle{hblock} = [draw,anchor=north,fill=blue!20!white,minimum width=2em,minimum height=0.5em]
+\tikzstyle{zblock} = [draw,anchor=north,fill=red!20!white,minimum width=2em]
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
 \centerline{\LARGE{\bfseries MMSP Compute and I/O Performance on AMOS}}
@@ -147,26 +152,29 @@ void PVT(MMSP::grid& grid, int nseeds=10000)
 In a regular 2D or 3D lattice with N lattice sites, each site has \emph{n} neighbors. S$^0_\emph{i}$ is the grain ID at lattice site \emph{i}, where \emph{i}=1,\emph{N}. J is the grain boundary free energy per unit area between adjacent lattice sites. Then the total grain boundary energy of the system is:
 \begin{equation}
 E = \frac{J}{2}\sum_{i=1}^{N} \sum_{j=1}^{n} (1 - \delta_{S^0_\emph{i} S^j_\emph{i}})
-\label{eqn:laplacian}
+\label{eqn:pottsE}
 \end{equation}
 
-where $\delta_{S^0_\emph{i} S^j_\emph{i}}$ is the Kronecker $\delta$ (1 if $S^0_\emph{i}=S^j_\emph{i}$, 0 if $S^0_\emph{i} \neq S^j_\emph{i}$)
+where $\delta_{S^0_\emph{i} S^j_\emph{i}}$ is the Kronecker delta function (1 if $S^0_\emph{i}=S^j_\emph{i}$, 0 if $S^0_\emph{i} \neq S^j_\emph{i}$)
 
 In serial, the Potts Monte Carlo algorithm is below:\\
 (1) Q possible grain IDs.\\
 (2) Randomly choose a site \emph{i}.\\
 (3) Randomly choose a new grain ID at site \emph{i}.\\
-(4) Compute the change in total system energy $\Delta$ E\\
+(4) Compute the change in total system energy $\Delta E$\\
 (5) The probability of accepting the new orientation is (Metropolis transition function)\\
 \begin{equation}
-p(\Delta E) =\begin{cases} 1 & if \Delta E \le 0 \\ exp(-\Delta E/kT) & if \Delta E > 0 \end{cases}
-\label{eqn:laplacian}
+p(\Delta E) = \begin{cases} 
+		1 		   & \mathrm{if}\ \Delta E \le 0 \\
+		\exp(-\Delta E/kT) & \mathrm{if}\ \Delta E > 0
+	      \end{cases}
+\label{eqn:pottsP}
 \end{equation}
 (6) One Monte Carlo Step (MCS) is defined as \emph{N} resetting grain ID attempts. \\
 
 The serial Potts algorithm is not parallelizable for assigning each of P processors a subset of the loop iterations. This is because if step (2) is executed simultaneously on multiple processors, then two (or more) processors may pick adjacent (or the same) lattice sites. If this occurs, then when the two processors execute step (3), they will each attempt to flip the spin of their lattice site using incorrect information about neighboring spins (each other). This would violate the Monte Carlo rule of "detailed balance" which demands that two (or more) sites not be flipped simultaneously.
 
-The parallelizable Potts Monte Carlo algorithm\cite{Wright,Shim} is to partion the overall grid  into different local grids so that each processor is assigned a contiguous subgrid. In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box. Each processor also stores a copy of the narrow strips (or planes in three dimensions) of lattice sites that immediately adjoin its sub-domain and which are actually owned by neighboring processors. 
+The parallelizable Potts Monte Carlo algorithm \cite{Wright,Shim} is to partion the overall grid  into different local grids so that each processor is assigned a contiguous subgrid. In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box. Each processor also stores a copy of the narrow strips (or planes in three dimensions) of lattice sites that immediately adjoin its sub-domain and which are actually owned by neighboring processors. 
 
 This allows a processor to check neighboring spin values of sites on the edge of its sub-domain. With these data structures, every processor can now simultaneously flip spins in its sub-domain without violating the rule of detailed balance, so long as one processor does not choose a lattice site on an edge of its sub-domain at the same time the processor adjoining that edge does likewise. We enforce this restriction in our parallel Potts algorithm by "slicing" the subgrid as shown in Figure 1. lattice site is represented by a square (not the corners of the square) and assigned a ``sublattice'' number, 0 or 1.
 
@@ -179,7 +187,7 @@ The parallel Monte Carlo Potts grain growth algorithm for one sweep can now be w
 \begin{lstlisting}
 in each processor
 number of subgrids = number of pthreads;
-number of sublattice = 2;
+n=2; // number of sublattice
   in subgrid-m (1=<m<=number of subgrids)
   {
     sublattice-1 = {sites with even x coordinates};
@@ -187,9 +195,9 @@ number of sublattice = 2;
   }
   in pthread-k with subgrid-k (1=<k<=number of pthreads)
   {
-    For(i = 1; i<=number of sublattice; i++)
+    for (i=1; i<=n; i++)
     { 
-      For(j = 1; j<=number of sites in sublattice-i; j++)
+      for (j = 1; j<=number of sites in sublattice-i; j++)
       {
         Pick a site in sublattice-i randomly;
         Flip the grain ID to be a random value of its neighbors';
@@ -210,18 +218,19 @@ This algorithm works for both 2-D and 3-D grid. Also, the communication of subgr
 This algorithm is not embarassingly parallel for the following aspects:\\
 (1) Information on neighboring processors affects physics of the local processor. \\
 (2) There are communications among neighboring subgrids.\\
-(3) Threads are adde into the fliping of grain ID of points.\\
+(3) Threads are added into the flipping of grain ID of points.
 
+\begin{center}
+\begin{minipage}{0.475\textwidth}\centering
+  \includegraphics[height=7.25in]{flow_chart.pdf}
+  \captionof{figure}{Flowchart of parallel Potts Monte Carlo algorithm.\label{fig:mc2}}
+\end{minipage}
+\end{center}
 
 \begin{center}
 \begin{minipage}{0.475\textwidth}\centering
   \includegraphics[height=1.75in]{mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
-\end{minipage}
-
-\begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[height=6.5in]{flow_chart.pdf}
-  \captionof{figure}{Flowchart of parallel Potts Monte Carlo algorithm.\label{fig:mc2}}
 \end{minipage}
 \end{center}
 
@@ -253,7 +262,7 @@ in each dimension, the Laplacian operator for a given order parameter is
 
 where the values $\phi_{i+1}$ and $\phi_{i-1}$ are read from the two neighbors of point $i$. 
 These second-order spatial derivatives are the reason this is not an embarassingly parallel algorithm.
-At the boundary of the grid stored on each MPI rank, values of $\phi\in S$ must be set in \emph{ghost cells} with data retrieved from the adjacent grid.
+At the boundary of the grid stored on each MPI rank, values of $\phi_{i \in S}$ must be set in \emph{ghost cells} with data retrieved from the adjacent grid.
 The more MPI ranks, the more ghost data, and the higher the network load.
 This intercommunication of boundary values occurs after each numerical integration iteration; that is to say, the serial computation and parallel data synchronization occur at different times.
 Listing~\ref{lst:pf} summarizes the phase-field algorithm as-implemented for $T$ timesteps on a local grid containing $N$ nodes, using only one thread per MPI rank.
@@ -291,7 +300,7 @@ An example of 2-D grain growth using the phase-field physical model is given in 
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{graingrowth}
-  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 13 minutes. Note the curved edges, and smaller grains than the Potts MC model.\label{fig:vorogg}}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 13 minutes. Note the curved edges.\label{fig:vorogg}}
 \end{minipage}\end{center}
 
 \subsection*{Two-Step I/O}
@@ -303,6 +312,11 @@ neither the Blue Gene/P nor AMOS ever wrote a complete MMSP file to disk.
 In the rare case when the file had non-zero size, it was too small by an integer multiple of the size-per-rank expected:
 some ranks were simply barred from contributing to the file.
 For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
+
+Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
+filesizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
+Our working hypothesis for AMOS's failure to write is that dividing the smaller files among thousands of processors created extreme contention for common blocks on the parallel filesystem, or else multiple GPFS servers attempted to allocate space for the same block.
+
 \begin{minipage}{0.475\textwidth}
 \begin{center}
 \begin{tikzpicture}[scale=0.5]
@@ -329,12 +343,135 @@ For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
 \end{minipage}
 
 
-Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
-filesizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
-Our working hypothesis for AMOS's failure to write is that dividing the smaller files among thousands of processors created extreme contention for common blocks on the parallel filesystem, or else multiple GPFS servers attempted to allocate space for the same block.
+\begin{minipage}{0.475\textwidth}
+\begin{center}
+\begin{tikzpicture}[scale=0.5]
+  % Column titles
+  \node[text width=1cm] at (0,0) {MPI Rank};
+  \node[text width=1cm] at (4,0) {Data Buffer};
+  \node[text width=1cm] at (8,0) {GPFS Block};
+  \foreach \y in {0,1,2,3,4,5,6,7} {
+    \node[rank] at ($(0,-4em)+(0,-3.5*\y)$) {$r_\y$};
+  }
+  % Data buffers
+  \node[mblock] at (4,-4em) { };
+  \node[hblock] at (4,-5em) { };
+  \node[zblock,minimum height=3em] at (4,-6em) { };
+  \path[->,out=0,in=180] (2em,-6em) edge (3.25,-4em);
+  \foreach \y in {1,2,3,4,5,6,7} {
+    \node[hblock] at ($(4,-4em)+(0,-3.5*\y)$) { };
+    \node[zblock,minimum height=3em] at ($(4,-5em)+(0,-3.5*\y)$) { };
+    \path[->,out=0,in=180] ($(2em,-6em)+(0,-3.5*\y)$) edge ($(3.25,-4em)+(0,-3.5*\y)$);
+  }
+  \node[zblock,minimum height=1.5em] at ($(4,-8em)+(0,-3.5*3)$) { };
+  \node[zblock,minimum height=1.5em] at ($(4,-8em)+(0,-3.5*7)$) { };
+  % GPFS blocks
+  \node[mblock] at (8,-4em) { };
+  \node[hblock] at (8,-5em) { };
+  \node[zblock,minimum height=3em] at (8,-6em) { };
+  \path[->] ($(2em,-4em)+(4,0)$) edge ($(2em,-4em)+(6.375,0)$);
+  \foreach \y in {1,2,3} {
+    \node[hblock] at ($(8,-4em)+(0,-2.625*\y)$) { };
+    \path[->,out=0,in=180] ($(2em,-4em)+(4,-3.5*\y)$) edge ($(7.125,-4em)+(0,-2.625*\y)$);
+  }
+  \node[zblock,minimum height=1.5em] at ($(8,-5em)+(0,-2.625*3)$) { };
+  \node[zblock,minimum height=1.5em] at ($(8,-5em)+(0,-2.625*4)$) { };
+  \path[->,out=0,in=180] ($(2em,-8em)+(4,-2.625*4)$) edge ($(2em,-5em)+(6.375,-2.625*4)$);
+  \foreach \y in {1,2} {
+    \node[zblock,minimum height=3em] at ($(8,-5em)+(0,-2.625*\y)$) { };
+  }
+  \foreach \y in {4,5,6,7} {
+    \node[hblock] at ($(8,-8em)+(0,-2.625*\y)$) { };
+    \path[->,out=0,in=180] ($(2em,-4em)+(4,-3.5*\y)$) edge ($(2em,-8em)+(6.375,-2.625*\y)$);
+  }
+  \foreach \y in {4,5,6} {
+    \node[zblock,minimum height=3em] at ($(8,-9em)+(0,-2.625*\y)$) { };
+  }
+  \node[zblock,minimum height=1.5em] at ($(8,-9em)+(0,-2.625*7)$) { };
+  \node[zblock,minimum height=1.5em] at ($(8,-15em)+(0,-2.625*7)$) { };
+  \path[->,out=0,in=180] ($(2em,-8em)+(4,-3.5*7)$) edge ($(2em,-15em)+(6.375,-2.625*7)$);
+\end{tikzpicture}
+\captionof{figure}{Schematic of data movement in stock \texttt{output()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:stockio}}
+\end{center}
+\vskip\baselineskip
+\end{minipage}
 
-
-
+\begin{minipage}{0.475\textwidth}
+\begin{center}
+\begin{tikzpicture}[scale=0.5]
+  % Column titles
+  \node[text width=1cm] at (0,0) {MPI Rank};
+  \node[text width=1cm] at (4,0) {Data Buffer};
+  \node[text width=1cm] at (8,0) {File Buffer};
+  \node[text width=1cm] at (12,0) {GPFS Block};
+  \foreach \y in {0,1,2,3,4,5,6,7} {
+    \node[rank] at ($(0,-4em)+(0,-3.5*\y)$) {$r_\y$};
+  }
+  % Data buffers
+  \node[mblock] at (4,-4em) { };
+  \node[hblock] at (4,-5em) { };
+  \node[zblock,minimum height=3em] at (4,-6em) { };
+  \path[->,out=0,in=180] (2em,-6em) edge (3.25,-4em);
+  \foreach \y in {1,2,3,4,5,6,7} {
+    \node[hblock] at ($(4,-4em)+(0,-3.5*\y)$) { };
+    \node[zblock,minimum height=3em] at ($(4,-5em)+(0,-3.5*\y)$) { };
+    \path[-,out=0,in=180] ($(2em,-6em)+(0,-3.5*\y)$) edge ($(3.25,-4em)+(0,-3.5*\y)$);
+  }
+  \node[zblock,minimum height=1.5em] at ($(4,-8em)+(0,-3.5*3)$) { };
+  \node[zblock,minimum height=1.5em] at ($(4,-8em)+(0,-3.5*7)$) { };
+  % File buffers
+  \node[mblock] at (8,-4em) { };
+  \node[hblock] at (8,-5em) { };
+  \node[zblock,minimum height=3em] at (8,-6em) { };
+  \path[->] ($(2em,-4em)+(4,0)$) edge ($(2em,-4em)+(6.5,0)$);
+  \foreach \y in {1,2,3} {
+    \node[hblock] at ($(8,-4em)+(0,-2.625*\y)$) { };
+    \path[->,out=135,in=305] ($(-2em,-4em)+(4,-3.5*\y)$) edge ($(2em,-8em)+(-0.25*\y,0)$);
+  }
+  \node[zblock,minimum height=1.5em] at ($(8,-5em)+(0,-2.625*3)$) { };
+  \node[zblock,minimum height=1.5em] at ($(8,-5em)+(0,-2.625*4)$) { };
+  \path[->,out=0,in=180] ($(2em,-8em)+(4,-2.625*4)$) edge ($(2em,-5em)+(6.375,-2.625*4)$);
+  \foreach \y in {1,2} {
+    \node[zblock,minimum height=3em] at ($(8,-5em)+(0,-2.625*\y)$) { };
+  }
+  \foreach \y in {4,5,6,7} {
+    \node[hblock] at ($(8,-8em)+(0,-2.625*\y)$) { };
+    \path[->,out=135,in=315] ($(-2em,-4em)+(4,-3.5*\y)$) edge ($(4em,-14.75em)+(-0.25*\y,-2.625*3)$);
+  }
+  \foreach \y in {4,5,6} {
+    \node[zblock,minimum height=3em] at ($(8,-9em)+(0,-2.625*\y)$) { };
+  }
+  \node[zblock,minimum height=1.5em] at ($(8,-9em)+(0,-2.625*7)$) { };
+  \node[zblock,minimum height=1.5em] at ($(8,-15em)+(0,-2.625*7)$) { };
+  \path[->,out=0,in=180] ($(2em,-8em)+(4,-3.5*7)$) edge ($(2em,-15em)+(6.375,-2.625*7)$);
+  % GPFS blocks
+  \node[mblock] at (12,-4em) { };
+  \node[hblock] at (12,-5em) { };
+  \node[zblock,minimum height=3em] at (12,-6em) { };
+  \path[->] ($(2em,-4em)+(4,0)$) edge ($(2em,-4em)+(10.375,0)$);
+  \foreach \y in {1,2,3} {
+    \node[hblock] at ($(12,-4em)+(0,-2.625*\y)$) { };
+  }
+  \node[zblock,minimum height=1.5em] at ($(12,-5em)+(0,-2.625*3)$) { };
+  \node[zblock,minimum height=1.5em] at ($(12,-5em)+(0,-2.625*4)$) { };
+  \foreach \y in {1,2} {
+    \node[zblock,minimum height=3em] at ($(12,-5em)+(0,-2.625*\y)$) { };
+  }
+  \path[->,out=0,in=180] ($(2em,-5em)+(8,-2.625*4)$) edge ($(2em,-5em)+(10.375,-2.625*4)$);
+  \foreach \y in {4,5,6,7} {
+    \node[hblock] at ($(12,-8em)+(0,-2.625*\y)$) { };
+  }
+  \foreach \y in {4,5,6} {
+    \node[zblock,minimum height=3em] at ($(12,-9em)+(0,-2.625*\y)$) { };
+  }
+  \node[zblock,minimum height=1.5em] at ($(12,-9em)+(0,-2.625*7)$) { };
+  \node[zblock,minimum height=1.5em] at ($(12,-15em)+(0,-2.625*7)$) { };
+  \path[->,out=0,in=180] ($(2em,-8.125em)+(8,-3.5*6)$) edge ($(2em,-15em)+(10.375,-2.625*7)$);
+\end{tikzpicture}
+\captionof{figure}{Schematic of data movement in two-stage aggregating \texttt{output\_bgq()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:bgqio}}
+\end{center}
+\vskip\baselineskip
+\end{minipage}
 
 \section{Results}
 
