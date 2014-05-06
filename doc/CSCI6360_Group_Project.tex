@@ -1,4 +1,4 @@
-\documentclass[11pt]{article}
+\documentclass[10pt]{article}
 \usepackage{amsmath,amssymb,fancyhdr,url,graphicx,courier,xcolor,multicol,listings,tikz}
 \usepackage[top=1in,bottom=1in,left=0.75in,right=0.75in,headheight=.75in]{geometry}
 \usepackage[small,bf]{caption}
@@ -554,7 +554,9 @@ The intialization files are roughly 20 MB, or 2.2 blocks on the GPFS;
 the fewer the threads, the more data transfer between the workers and the three aggregator ranks.
 This peak is almost certainly due to data compression during output, which we did not pthread, but apparently should have:
 \texttt{zlib} is an expensive algorithm.
-The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk.
+The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, and therefore the lower the write-performance.
+The inclusion of \texttt{zlib} in the \texttt{output\_bgq()} function also noticably degraded bandwidth:
+the peak value was only 15~MB/s.
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
@@ -574,6 +576,8 @@ The higher the number of pthreads, the fewer MPI ranks available to compress the
 \end{minipage}
 \end{center}
 
+
+
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-comp}
@@ -586,17 +590,24 @@ The higher the number of pthreads, the fewer MPI ranks available to compress the
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-compBW}
-  \captionof{figure}{Parallel I/O bandwidth writing $15^{\mathrm{th}}$ Monte Carlo step.}
-\end{minipage}
-\begin{minipage}{0.4\textwidth}\centering
+
   \includegraphics[width=\textwidth]{img/pr-compBW}
-  \captionof{figure}{Parallel I/O bandwidth writing $15^{\mathrm{th}}$ phase-field iteration.}
+  \captionof{figure}{Parallel I/O bandwidth writing the $15^{\mathrm{th}}$ (top) Monte Carlo step and (bottom) phase-field iteration.}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{img/prMC-exec}
+
+  \includegraphics[width=\textwidth]{img/pr-exec}
+  \captionof{figure}{Total execution time for (top) Monte Carlo and (bottom) phase-field simulations.}
 \end{minipage}
 \end{center}
 
 
 \section{Conclusions}
-
+Note that our MPI-IO timer envelopes as much of \texttt{output\_bgq()} as possible, since our goal here was to analyze the real-world performance of the code.
 
 \section{Contributions}
 \begin{itemize}
