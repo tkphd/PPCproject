@@ -160,7 +160,7 @@ void* update_threads_helper( void * s )
 	const float mu = 1.0;
 	const float epsilon = 1.0e-8;
 
-	for (int i = ss->nstart; i < ss->nend; i++) {
+	for (unsigned int i = ss->nstart; i < ss->nend; i++) {
 		vector<int> x = position((*ss->grid), i);
 
 		// determine nonzero fields within
