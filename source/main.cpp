@@ -277,6 +277,9 @@ int main(int argc, char* argv[]) {
 		// set output filename length
 		int length = base.length() + suffix.length() + ilength(steps);
 
+		#ifdef SILENT
+		if (rank==0) std::cout<<np<<'\t'<<nthreads<<'\t';
+		#endif
 		unsigned long init_cycles=0, comp_cycles=0;
 		double init_bw=0.0, comp_bw=0.0;
 		if (dim == 2) {
@@ -286,7 +289,8 @@ int main(int argc, char* argv[]) {
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<double(init_cycles)/clock_rate<<" sec."<<std::endl;
 			#else
-			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
+			//if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
+			if (rank==0) std::cout<<double(init_cycles)/clock_rate<<'\t';
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
@@ -315,7 +319,8 @@ int main(int argc, char* argv[]) {
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec. MP Write bandwidth was "<<allbw<<" B/s, excluding aggregation overhead."<<std::endl;
 			#else
-			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
+			//if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
+			if (rank==0) std::cout<<allbw<<'\t';
 			#endif
 
 			// perform computation
@@ -325,7 +330,8 @@ int main(int argc, char* argv[]) {
 				#ifdef MPI_VERSION
 				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#endif
-				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
+				//if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
+				if (rank==0) std::cout<<double(allcomp)/(np*clock_rate)<<'\t';
 
 				// generate output filename
 				std::stringstream outstr;
@@ -357,9 +363,11 @@ int main(int argc, char* argv[]) {
 				#else
 				allio = iocycles;
 				#endif
-				if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
 				#ifndef SILENT
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio<<" sec."<<std::endl;
+				#else
+				//if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
+				if (rank==0) std::cout<<allbw<<'\t';
 				#endif
 				outstr.str("");
 			}
@@ -373,7 +381,8 @@ int main(int argc, char* argv[]) {
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Finished tessellation in "<<double(init_cycles)/clock_rate<<" sec."<<std::endl;
 			#else
-			if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
+			//if (rank==0) std::cout<<"init_time(sec)\t"<<double(init_cycles)/clock_rate<<std::endl;
+			if (rank==0) std::cout<<double(init_cycles)/clock_rate<<'\t';
 			#endif
 			assert(grid!=NULL);
 			char filename[FILENAME_MAX] = { }; //new char[outfile.length()+2];
@@ -397,9 +406,11 @@ int main(int argc, char* argv[]) {
 			#else
 			allio = iocycles;
 			#endif
-			if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
 			#ifndef SILENT
 			if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+			#else
+			//if (rank==0) std::cout<<"init_bw(B/s)\t"<<allbw<<std::endl;
+			if (rank==0) std::cout<<allbw<<'\t';
 			#endif
 
 			// perform computation
@@ -409,7 +420,11 @@ int main(int argc, char* argv[]) {
 				#ifdef MPI_VERSION
 				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
 				#endif
+				#ifndef SILENT
 				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
+				#else
+				if (rank==0) std::cout<<double(allcomp)/(np*clock_rate)<<'\t';
+				#endif
 
 				// generate output filename
 				std::stringstream outstr;
@@ -441,9 +456,11 @@ int main(int argc, char* argv[]) {
 				#else
 				allio = iocycles;
 				#endif
-				if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
 				#ifndef SILENT
 				if (rank==0) std::cout<<"Wrote "<<outfile<<" in "<<allio/clock_rate<<" sec."<<std::endl;
+				#else
+				//if (rank==0) std::cout<<"comp_bw(B/s)\t"<<allbw<<std::endl;
+				if (rank==0) std::cout<<allbw<<'\t';
 				#endif
 				outstr.str("");
 			}
@@ -663,7 +680,11 @@ int main(int argc, char* argv[]) {
 	exec_cycles = rdtsc() - exec_cycles;
 	unsigned long allexec;
 	MPI_Reduce(&exec_cycles, &allexec, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI::COMM_WORLD);
+	#ifndef SILENT
 	if (rank==0) std::cout<<"exec_time(sec)\t"<<double(allexec)/(np*clock_rate)<<std::endl;
+	#else
+	if (rank==0) std::cout<<double(allexec)/(np*clock_rate)<<std::endl;
+	#endif
 
 	MMSP::Finalize();
 
