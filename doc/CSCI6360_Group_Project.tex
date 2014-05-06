@@ -1,4 +1,4 @@
-\documentclass[10pt]{article}
+\documentclass[11pt]{article}
 \usepackage{amsmath,amssymb,fancyhdr,url,graphicx,courier,xcolor,multicol,listings,tikz}
 \usepackage[top=1in,bottom=1in,left=0.75in,right=0.75in,headheight=.75in]{geometry}
 \usepackage[small,bf]{caption}
@@ -234,13 +234,12 @@ This algorithm is not embarassingly parallel for the following aspects:\\
 \end{minipage}
 \end{center}
 
-An example of 2-D grain growth using the Potts Monte Carlo physical model is given in Fig.~\ref{fig:voroggmc}.
-
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{img/graingrowth-mc}
   \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 18 minutes. Note the curved edges.\label{fig:voroggmc}}
 \end{minipage}\end{center}
 
+An example of 2-D grain growth using the Potts Monte Carlo physical model is given in Fig.~\ref{fig:voroggmc}.
 
 \subsection*{Phase-Field Model}
 Phase-field models are useful for mesoscale simulations of cellular materials:
@@ -500,7 +499,10 @@ These conditions were chosen to reveal trends in compute performance (increased 
 Column~4 in Table~\ref{tab:cond} represents the conserved quantity $np$ for each node count:
 the number of MPI ranks is inversely proportional to the number of pthreads, and the ``total capacity'' for parallel work is held constant.
 
-
+For both physical models, we used a cubic 3-D mesh with $512$ nodes per edge, for a total of 134,217,728 nodes in the mesh.
+These meshes were coarsened for fifteen steps (Monte Carlo steps or phase-field iterations), which is short, but still produced a representative result.
+The major difference between the meshes is in the data type:
+Monte Carlo meshes store one scalar value (the grain ID) at each
 \begin{center}
 \begin{minipage}{0.45\textwidth}\centering
 \captionof{table}{Summary of execution conditions on AMOS. \checkmark indicates success, $\times$ failure to exit cleanly within the $30$-minute window.\label{tab:cond}}
@@ -536,11 +538,7 @@ Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
 \end{footnotesize}
 \end{minipage}
 \end{center}
-
-For both physical models, we used a cubic 3-D mesh with $512$ nodes per edge, for a total of 134,217,728 nodes in the mesh.
-These meshes were coarsened for fifteen steps (Monte Carlo steps or phase-field iterations), which is short, but still produced a representative result.
-The major difference between the meshes is in the data type:
-Monte Carlo meshes store one scalar value (the grain ID) at each node, while the phase-field mesh stores a set of order parameters (ranging in value between zero and one) at each node.
+node, while the phase-field mesh stores a set of order parameters (ranging in value between zero and one) at each node.
 
 The Poisson-Voronoi tessellation (PVT) has nearly identical behavior for both meshes:
 it either sets the scalar value, or sets to one the paramater corresponding to that scalar, at each mesh point.
@@ -549,15 +547,7 @@ This suggests our implementations of the algorithm for both mesh types are corre
 The graphs show a minimum in compute time between 4--16 pthreads, with a sharp increase for $32$.
 This is likely due to the overhead associated with spawning new pthreads, especially since increasing the number of threads must decrease the work available for each thread to perform.
 Globally, the more MPI ranks available, the faster the initialization, since there is no such overhead associated with adding MPI ranks.
-There is also a sharp maximum in write bandwidth between 4--16 threads, which is unexpected.
-The intialization files are roughly 20 MB, or 2.2 blocks on the GPFS;
-the fewer the threads, the more data transfer between the workers and the three aggregator ranks.
-This peak is almost certainly due to data compression during output, which we did not pthread, but apparently should have:
-\texttt{zlib} is an expensive algorithm.
-The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, and therefore the lower the write-performance.
-The inclusion of \texttt{zlib} in the \texttt{output\_bgq()} function also noticably degraded bandwidth:
-the peak value was only 15~MB/s.
-
+There is also a sharp maximum in write bandwidth
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-init}
@@ -566,7 +556,14 @@ the peak value was only 15~MB/s.
   \captionof{figure}{Initialization (PVT) time for (top) scalar-valued and (bottom) sparse vector-valued meshes.\label{fig:vorot}}
 \end{minipage}
 \end{center}
-
+between 4--16 threads, which is unexpected.
+The intialization files are roughly 20 MB, or 2.2 blocks on the GPFS;
+the fewer the threads, the more data transfer between the workers and the three aggregator ranks.
+This peak is almost certainly due to data compression during output, which we did not pthread, but apparently should have:
+\texttt{zlib} is an expensive algorithm.
+The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, and therefore the lower the write-performance.
+The inclusion of \texttt{zlib} in the \texttt{output\_bgq()} function also noticably degraded bandwidth:
+the peak value was only 15~MB/s.
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-initBW}
@@ -575,7 +572,6 @@ the peak value was only 15~MB/s.
   \captionof{figure}{Parallel I/O bandwidth writing PVT-initialized (top) scalar-valued and (bottom) sparse-vector-valued meshes.\label{fig:vorob}}
 \end{minipage}
 \end{center}
-
 
 
 \begin{center}
