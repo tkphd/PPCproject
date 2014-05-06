@@ -91,10 +91,10 @@ We did, however, modify the reference algorithm in the following ways:
 This reduced the runtime from $\mathcal{O}(2\ \mathrm{hours})$ to under a minute.
 The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on AMOS is provided in Fig.~\ref{fig:voro}.
 
-\begin{minipage}{0.45\textwidth}\centering
+\begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{voronoi}
   \captionof{figure}{Voronoi tessellation produced by our code on AMOS ($1024\times1024$ mesh, $3336$ seeds; $1024$ threads). Runtime: 0.07 sec. Note the straight edges.\label{fig:voro}}
-\end{minipage}
+\end{minipage}\end{center}
 
 
 \begin{minipage}{0.45\textwidth}
@@ -177,6 +177,7 @@ End color loop
 This algorithm works for both 2-D and 3-D lattices. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
 
 
+\begin{center}
 \begin{minipage}{0.475\textwidth}\centering
   \includegraphics[width=\textwidth]{mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
@@ -186,8 +187,16 @@ This algorithm works for both 2-D and 3-D lattices. Also, the communication of s
   \includegraphics[height=6.5in]{mc-fig-02}
   \captionof{figure}{\emph{No caption provided.}\label{fig:mc2}}
 \end{minipage}
+\end{center}
 
-\newpage
+An example of 2-D grain growth using the Potts Monte Carlo physical model is given in Fig.~\ref{fig:voroggmc}.
+
+\begin{center}\begin{minipage}{0.45\textwidth}\centering
+  \includegraphics[width=\textwidth]{graingrowth-mc}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 18 minutes. Note the curved edges.\label{fig:voroggmc}}
+\end{minipage}\end{center}
+
+
 \subsection*{Phase-Field Model}
 Phase-field models are useful for mesoscale simulations of cellular materials:
 the models have a characteristic length scale $\mathcal{O}(1\ \mu\mathrm{m})$, with ``cells'' distinguished by some characteristic such as solid fraction (instead of liquid), magnetic field alignment, or grain orientation.
@@ -242,12 +251,12 @@ int main()
 The independence of computation from communication and the increasing communication overhead associated with adding MPI ranks makes pthreading a favorable approach for maximizing performance in this model.
 To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nlo; n<nhi; n++}, with \texttt{nlo}$\geq0$ and \texttt{nhi}$<$\texttt{N} defined for each pthread.
 
-An example of 2-D grain growth is given in Fig.~\ref{fig:vorogg}.
+An example of 2-D grain growth using the phase-field physical model is given in Fig.~\ref{fig:vorogg}.
 
-\begin{minipage}{0.45\textwidth}\centering
+\begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{graingrowth}
-  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 13 minutes. Note the curved edges.\label{fig:vorogg}}
-\end{minipage}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 13 minutes. Note the curved edges, and smaller grains than the Potts MC model.\label{fig:vorogg}}
+\end{minipage}\end{center}
 
 \subsection*{Two-Step I/O}
 The stock MMSP distribution comes with an \texttt{output} function which synchronizes data sizes across all MPI ranks, sets a local offset, then calls \texttt{MPI\_File\_iwrite\_at} with a matching \texttt{MPI\_Wait}.
