@@ -278,7 +278,6 @@ int main(int argc, char* argv[]) {
 
 		unsigned long init_cycles=0, comp_cycles=0;
 		double init_bw=0.0, comp_bw=0.0;
-
 		if (dim == 2) {
 			// tessellate
 			GRID2D* grid=NULL;

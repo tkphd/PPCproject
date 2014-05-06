@@ -13,5 +13,5 @@ doc/*.aux
 doc/*.backup
 doc/*.gz
 doc/*.log
-doc/*.pdf
+doc/CSCI6360_Group_Project.pdf
 
