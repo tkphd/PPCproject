@@ -244,8 +244,10 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 	exit(1);
 	#endif
 	int rank=0;
+	unsigned int np=0;
 	#ifdef MPI_VERSION
  	rank=MPI::COMM_WORLD.Get_rank();
+ 	np=MPI::COMM_WORLD.Get_size();
 	#endif
 
 	#ifndef SILENT
@@ -255,11 +257,11 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 
 	unsigned long timer = 0;
 	for (int step = 0; step < steps; step++) {
+		unsigned long comptime=rdtsc();
 		// update grid must be overwritten each time
 		MMSP::grid<dim, sparse<float> > update(grid);
 		ghostswap(grid);
 
-		unsigned long comptime=rdtsc();
 		pthread_t * p_threads = new pthread_t[ nthreads];
         update_thread_para<dim>* update_para = new update_thread_para<dim>[nthreads];
         pthread_attr_t attr;
@@ -295,6 +297,10 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 	#ifndef SILENT
 	++iterations;
 	#endif
+
+	unsigned long total_update_time;
+	MPI::COMM_WORLD.Allreduce(&timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+	return total_update_time/np; // average update time
 	return timer;
 }
 

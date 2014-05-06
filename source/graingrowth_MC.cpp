@@ -219,8 +219,7 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 
 	MPI::COMM_WORLD.Barrier();
 
-	unsigned long start = rdtsc();
-	unsigned long update_timer = rdtsc()-start;
+	unsigned long update_timer = 0;
 
 	int front_low_left_corner[dim];
 	int back_up_right_corner[dim];
@@ -241,7 +240,7 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	if (rank==0) print_progress(0, steps, iterations);
 	#endif
 	for (int step=0; step<steps; step++) {
-		start = rdtsc();
+		unsigned long start = rdtsc();
 		for (int sublattice=0; sublattice!= 2; sublattice++) {
 			for (int i=0; i!= nthreads ; i++ ) {
 
@@ -288,11 +287,10 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	delete [] mat_para ;
 	mat_para=NULL;
 
-    unsigned long update_timer = rdtsc()-start;
-    unsigned long total_update_time;
-    MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-    //if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
-    return total_update_time;
+	unsigned long total_update_time;
+	MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+	//if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
+	return total_update_time/np; // average update time
 }
 
 }

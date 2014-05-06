@@ -47,7 +47,7 @@ template <typename T> int ilength(const T& i)
 }
 
 int main(int argc, char* argv[]) {
-
+	unsigned long exec_timer = rdtsc();
 	MMSP::Init(argc, argv);
 
 	// check argument list
@@ -660,6 +660,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	MMSP::Finalize();
+
+	exec_timer = exec_timer - rdtsc();
+	if (rank==0) std::cout<<"exec_time(sec)\t"<<double(exec_timer)/clock_rate<<std::endl;
 
 	return 0;
 }

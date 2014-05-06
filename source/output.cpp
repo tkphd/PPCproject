@@ -24,6 +24,8 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI_Status status;
 	int mpi_err = 0;
 
+	unsigned long writecycles = 0;
+
 	// Read filesystem block size (using statvfs). Default to 4096 B.
 	struct statvfs buf;
 	const unsigned long blocksize = (statvfs(".", &buf) == -1)?4096:buf.f_bsize;
@@ -236,14 +238,12 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	if (rank==0) std::cout<<"  Opening "<<std::string(filename)<<" for output."<<std::endl;
 	#endif
 	MPI_Info info = MPI::INFO_NULL;
-	/*
 	#ifdef BGQ
 	MPI_Info_create(&info);
 	MPI_Info_set(info, "IBM_largeblock_io", "true");
 	#else
 	info = MPI::INFO_NULL;
 	#endif
-	*/
 	MPI_File output;
 	mpi_err = MPI_File_open(MPI::COMM_WORLD, filename, MPI::MODE_WRONLY|MPI::MODE_CREATE, info, &output);
 	if (mpi_err != MPI_SUCCESS) {
@@ -266,14 +266,13 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	}
 
 	// Write to disk
-	unsigned long writecycles = 0;
 	if (filebuffer!=NULL) {
 		unsigned int w=0;
 		while (writeranks[w]!=rank) ++w;
 		assert(w<nwriters);
 		if (w==nwriters-1)
 			assert(filesize-aoffsets[w]==ws);
-		writecycles = rdtsc();
+		//writecycles = rdtsc();
 		mpi_err = MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
 		MPI_Wait(&request, &status);
 		if (mpi_err != MPI_SUCCESS) {
@@ -282,20 +281,15 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 			MPI_Error_string(mpi_err, error_string, &length_of_error_string);
 			fprintf(stderr, "%3d: %s\n", rank, error_string);
 		}
-		writecycles = rdtsc() - writecycles;
+		//writecycles = rdtsc() - writecycles;
 	} else {
 		ws = 0; // not a writer
 	}
 
-	/*
-	unsigned long allcycles = 0;
-	MPI_Allreduce(&writecycles, &allcycles, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI::COMM_WORLD);
-	allcycles /= nwriters;
-	assert(allcycles>0);
-	*/
-
 	MPI::COMM_WORLD.Barrier();
 	MPI_File_close(&output);
+	writecycles = rdtsc() - writecycles;
+	MPI_Info_free(&info);
 	if (recvrequests!=NULL) {
 		delete [] recvrequests;
 		recvrequests=NULL;

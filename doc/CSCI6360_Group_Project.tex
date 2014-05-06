@@ -495,29 +495,77 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
 \section{Results}
 Each node on AMOS contains a 17-core PowerPC A2 processor, of which 16 cores are accessible to MPI.
 Each core provides hardware support for up to 4 threads, for a total capacity of 64 threads per node.
-For the purposes of analyzing the performance of our code, we ran simulations using the Potts Monte Carlo and phase-field models described in Sec.~\ref{sec:algo} using the configurations given in Tab.~\ref{tab:cond}.
+For the purposes of analyzing the performance of our code, we ran simulations using the Potts Monte Carlo and phase-field models described in Sec.~\ref{sec:algo} using the configurations given in Table~\ref{tab:cond}.
 
 \begin{center}
 \begin{minipage}{0.45\textwidth}
 \captionof{table}{Summary of execution conditions on AMOS.\label{tab:cond}}
-\begin{tabular}{|cccc|}\hline
-AMOS  	& MPI 	& pthreads & Total\\
-Nodes	& Ranks & per rank & Capacity\\
-($N$)	& ($n$)	& ($p$)	& ($np$)\\\hline
-64	& 4096	& 1	& 4096\\
-64	& 1024	& 4	& 4096\\
-64	& 256	& 16	& 4096\\
-64	& 64	& 64	& 4096\\\hline
-128	& 8192	& 1	& 8192\\
-128	& 2048	& 4	& 8192\\
-128	& 1024	& 16	& 8192\\
-128	& 128	& 64	& 8192\\\hline
-256	& 16384	& 1	& 16384\\
-256	& 4096	& 4	& 16384\\
-256	& 1024	& 16	& 16384\\
-256	& 256	& 64	& 16384\\
-\hline
+\begin{footnotesize}
+\begin{tabular}{|cccc|cc|}\hline
+AMOS  	& MPI 	& pthreads & Total	& Monte	& Phase-\\
+Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
+($N$)	& ($n$)	& ($p$)	& ($np$)	& success & success\\\hline
+64	& 64	& 64	& 4096	&$\times$ &$\times$ \\
+64	& 128	& 32	& 4096	&\checkmark &$\times$ \\
+64	& 256	& 16	& 4096	&\checkmark &\checkmark \\
+64	& 1024	& 4	& 4096	&\checkmark &\checkmark \\
+64	& 4096	& 1	& 4096	&\checkmark &\checkmark \\\hline
+128	& 128	& 64	& 8192	&$\times$ &$\times$ \\
+128	& 256	& 32	& 8192	&\checkmark &\checkmark \\
+128	& 1024	& 16	& 8192	&\checkmark &\checkmark \\
+128	& 2048	& 4	& 8192	&\checkmark &\checkmark \\
+128	& 8192	& 1	& 8192	&$\times$ &$\times$ \\\hline
+256	& 256	& 64	& 16384	&$\times$ &$\times$\\
+256	& 512	& 32	& 16384	&$\times$ &\checkmark \\
+256	& 1024	& 16	& 16384	&\checkmark &\checkmark \\
+256	& 4096	& 4	& 16384	&\checkmark &\checkmark \\
+256	& 16384	& 1	& 16384	&$\times$ &$\times$ \\\hline
 \end{tabular}
+\end{footnotesize}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/prMC-init}
+  \captionof{figure}{Initialization (PVT) time (MC)}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/pr-init}
+  \captionof{figure}{Initialization (PVT) time (PF)}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/prMC-comp}
+  \captionof{figure}{Computation time (MC)}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/pr-comp}
+  \captionof{figure}{Computation time (PF)}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/prMC-initBW}
+  \captionof{figure}{Initialization (PVT) bandwidth (MC)}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/pr-initBW}
+  \captionof{figure}{Initialization (PVT) bandwidth (PF)}
+\end{minipage}
+\end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/prMC-compBW}
+  \captionof{figure}{Computation bandwidth (MC)}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{../data/pr-compBW}
+  \captionof{figure}{Computation bandwidth (PF)}
 \end{minipage}
 \end{center}
 
