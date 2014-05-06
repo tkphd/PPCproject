@@ -81,7 +81,7 @@ only the accumulator ranks write to disk, once their output buffers are full.
 \section{Algorithms\label{sec:algo}}
 We selected two strong-scaling grain growth models -- Potts Monte Carlo and phase-field -- for comparison.
 
-\subsection*{Voronoi Tessellation}
+\subsection*{Voronoi Tessellation\label{sec:pvt}}
 3-D simulations need a starting point, and the Poisson-Voronoi tessellation is the most common for grain growth simulations.
 These tessellations are the combination of a Poisson point process for generating random seed points, followed by the Voronoi tessellation of space around those seeds;
 that is to say, any point in space closer to one seed than any other belongs to that seed's domain.
@@ -97,7 +97,7 @@ This reduced the runtime from $\mathcal{O}(2\ \mathrm{hours})$ to under a minute
 The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on AMOS is provided in Fig.~\ref{fig:voro}.
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
-  \includegraphics[width=\textwidth]{voronoi}
+  \includegraphics[width=\textwidth]{img/voronoi}
   \captionof{figure}{Voronoi tessellation produced by our code on AMOS ($1024\times1024$ mesh, $3336$ seeds; $1024$ threads). Runtime: 0.07 sec. Note the straight edges.\label{fig:voro}}
 \end{minipage}\end{center}
 
@@ -229,7 +229,7 @@ This algorithm is not embarassingly parallel for the following aspects:\\
 
 \begin{center}
 \begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[height=1.75in]{mc-fig-01}
+  \includegraphics[height=1.75in]{img/mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
 \end{minipage}
 \end{center}
@@ -237,7 +237,7 @@ This algorithm is not embarassingly parallel for the following aspects:\\
 An example of 2-D grain growth using the Potts Monte Carlo physical model is given in Fig.~\ref{fig:voroggmc}.
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
-  \includegraphics[width=\textwidth]{graingrowth-mc}
+  \includegraphics[width=\textwidth]{img/graingrowth-mc}
   \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 18 minutes. Note the curved edges.\label{fig:voroggmc}}
 \end{minipage}\end{center}
 
@@ -299,7 +299,7 @@ To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nl
 An example of 2-D grain growth using the phase-field physical model is given in Fig.~\ref{fig:vorogg}.
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
-  \includegraphics[width=\textwidth]{graingrowth}
+  \includegraphics[width=\textwidth]{img/graingrowth}
   \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 13 minutes. Note the curved edges.\label{fig:vorogg}}
 \end{minipage}\end{center}
 
@@ -492,24 +492,30 @@ The approach is similar to the ``reduced blocking I/O'' used in PHASTA \cite{Car
 
 
 \newpage
-\section{Results}
+\section{Results and Discussion}
 Each node on AMOS contains a 17-core PowerPC A2 processor, of which 16 cores are accessible to MPI.
 Each core provides hardware support for up to 4 threads, for a total capacity of 64 threads per node.
 For the purposes of analyzing the performance of our code, we ran simulations using the Potts Monte Carlo and phase-field models described in Sec.~\ref{sec:algo} using the configurations given in Table~\ref{tab:cond}.
+These conditions were chosen to reveal trends in compute performance (increased pthreading) and file I/O (increasing node count).
+Column~4 in Table~\ref{tab:cond} represents the conserved quantity $np$ for each node count:
+the number of MPI ranks is inversely proportional to the number of pthreads, and the ``total capacity'' for parallel work is held constant.
+
 
 \begin{center}
 \begin{minipage}{0.45\textwidth}\centering
 \captionof{table}{Summary of execution conditions on AMOS. \checkmark indicates success, $\times$ failure to exit cleanly within the $30$-minute window.\label{tab:cond}}
 \begin{footnotesize}
+\bgroup
+\renewcommand\tabcolsep{5pt}
 \begin{tabular}{|cccc|cc|}\hline
-AMOS  	& MPI 	& pthreads & Total	& Monte	& Phase-\\
+AMOS  	& MPI 	& threads & Parallel	& Monte	& Phase\\
 Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
-($N$)	& ($n$)	& ($p$)	& ($np$)	& success & success\\\hline
-32	& 32	& 64	& 4096	&\checkmark &\checkmark \\
-32	& 64	& 32	& 4096	&\checkmark &\checkmark \\
-32	& 128	& 16	& 4096	&\checkmark &\checkmark \\
-32	& 512	& 4	& 4096	&\checkmark &\checkmark \\
-32	& 2048	& 1	& 4096	&\checkmark &\checkmark \\\hline
+($N$)	& ($n$)	& ($p$)	& ($np$)	& result & result\\\hline
+32	& 32	& 64	& 2048	&\checkmark &\checkmark \\
+32	& 64	& 32	& 2048	&\checkmark &\checkmark \\
+32	& 128	& 16	& 2048	&\checkmark &\checkmark \\
+32	& 512	& 4	& 2048	&\checkmark &\checkmark \\
+32	& 2048	& 1	& 2048	&\checkmark &\checkmark \\\hline
 64	& 64	& 64	& 4096	&$\times$ &$\times$ \\
 64	& 128	& 32	& 4096	&\checkmark &\checkmark \\
 64	& 256	& 16	& 4096	&\checkmark &\checkmark \\
@@ -526,55 +532,67 @@ Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
 256	& 4096	& 4	& 16384	&\checkmark &\checkmark \\
 256	& 16384	& 1	& 16384	&$\times$ &$\times$ \\\hline
 \end{tabular}
+\egroup
 \end{footnotesize}
 \end{minipage}
 \end{center}
 
+For both physical models, we used a cubic 3-D mesh with $512$ nodes per edge, for a total of 134,217,728 nodes in the mesh.
+These meshes were coarsened for fifteen steps (Monte Carlo steps or phase-field iterations), which is short, but still produced a representative result.
+The major difference between the meshes is in the data type:
+Monte Carlo meshes store one scalar value (the grain ID) at each node, while the phase-field mesh stores a set of order parameters (ranging in value between zero and one) at each node.
+
+The Poisson-Voronoi tessellation (PVT) has nearly identical behavior for both meshes:
+it either sets the scalar value, or sets to one the paramater corresponding to that scalar, at each mesh point.
+As evident in Figs.~\ref{fig:vorot}~and~\ref{fig:vorob}, aside from a couple missing values due to pthreading limitations, the results are indistinguishable.
+This suggests our implementations of the algorithm for both mesh types are correct, or at least consistent with each other.
+The graphs show a minimum in compute time between 4--16 pthreads, with a sharp increase for $32$.
+This is likely due to the overhead associated with spawning new pthreads, especially since increasing the number of threads must decrease the work available for each thread to perform.
+Globally, the more MPI ranks available, the faster the initialization, since there is no such overhead associated with adding MPI ranks.
+There is also a sharp maximum in write bandwidth between 4--16 threads, which is unexpected.
+The intialization files are roughly 20 MB, or 2.2 blocks on the GPFS;
+the fewer the threads, the more data transfer between the workers and the three aggregator ranks.
+This peak is almost certainly due to data compression during output, which we did not pthread, but apparently should have:
+\texttt{zlib} is an expensive algorithm.
+The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk.
+
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/prMC-init}
-  \captionof{figure}{Initialization (PVT) time (MC)}
-\end{minipage}
-\begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/pr-init}
-  \captionof{figure}{Initialization (PVT) time (PF)}
+  \includegraphics[width=\textwidth]{img/prMC-init}
+  
+  \includegraphics[width=\textwidth]{img/pr-init}
+  \captionof{figure}{Initialization (PVT) time for (top) scalar-valued and (bottom) sparse vector-valued meshes.\label{fig:vorot}}
 \end{minipage}
 \end{center}
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/prMC-comp}
-  \captionof{figure}{Computation time (MC)}
-\end{minipage}
-\begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/pr-comp}
-  \captionof{figure}{Computation time (PF)}
+  \includegraphics[width=\textwidth]{img/prMC-initBW}
+
+  \includegraphics[width=\textwidth]{img/pr-initBW}
+  \captionof{figure}{Parallel I/O bandwidth writing PVT-initialized (top) scalar-valued and (bottom) sparse-vector-valued meshes.\label{fig:vorob}}
 \end{minipage}
 \end{center}
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/prMC-initBW}
-  \captionof{figure}{Initialization (PVT) bandwidth (MC)}
-\end{minipage}
-\begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/pr-initBW}
-  \captionof{figure}{Initialization (PVT) bandwidth (PF)}
+  \includegraphics[width=\textwidth]{img/prMC-comp}
+
+  \includegraphics[width=\textwidth]{img/pr-comp}
+  \captionof{figure}{Computation time for (top) 15 Monte Carlo steps and (bottom) 15 phase-field iterations.}
 \end{minipage}
 \end{center}
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/prMC-compBW}
-  \captionof{figure}{Computation bandwidth (MC)}
+  \includegraphics[width=\textwidth]{img/prMC-compBW}
+  \captionof{figure}{Parallel I/O bandwidth writing $15^{\mathrm{th}}$ Monte Carlo step.}
 \end{minipage}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{../data/pr-compBW}
-  \captionof{figure}{Computation bandwidth (PF)}
+  \includegraphics[width=\textwidth]{img/pr-compBW}
+  \captionof{figure}{Parallel I/O bandwidth writing $15^{\mathrm{th}}$ phase-field iteration.}
 \end{minipage}
 \end{center}
-
-\section{Analysis}
 
 
 \section{Conclusions}
