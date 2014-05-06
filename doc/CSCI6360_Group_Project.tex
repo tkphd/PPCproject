@@ -78,7 +78,7 @@ We chose to address this problem by implementing an explicit two-stage accumulat
 only the accumulator ranks write to disk, once their output buffers are full.
 
 
-\section{Algorithms}
+\section{Algorithms\label{sec:algo}}
 We selected two strong-scaling grain growth models -- Potts Monte Carlo and phase-field -- for comparison.
 
 \subsection*{Voronoi Tessellation}
@@ -493,7 +493,33 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
 
 
 \section{Results}
+Each node on AMOS contains a 17-core PowerPC A2 processor, of which 16 cores are accessible to MPI.
+Each core provides hardware support for up to 4 threads, for a total capacity of 64 threads per node.
+For the purposes of analyzing the performance of our code, we ran simulations using the Potts Monte Carlo and phase-field models described in Sec.~\ref{sec:algo} using the configurations given in Tab.~\ref{tab:cond}.
 
+\begin{center}
+\begin{minipage}{0.45\textwidth}
+\captionof{table}{Summary of execution conditions on AMOS.\label{tab:cond}}
+\begin{tabular}{|cccc|}\hline
+AMOS  	& MPI 	& pthreads & Total\\
+Nodes	& Ranks & per rank & Capacity\\
+($N$)	& ($n$)	& ($p$)	& ($np$)\\\hline
+64	& 4096	& 1	& 4096\\
+64	& 1024	& 4	& 4096\\
+64	& 256	& 16	& 4096\\
+64	& 64	& 64	& 4096\\\hline
+128	& 8192	& 1	& 8192\\
+128	& 2048	& 4	& 8192\\
+128	& 1024	& 16	& 8192\\
+128	& 128	& 64	& 8192\\\hline
+256	& 16384	& 1	& 16384\\
+256	& 4096	& 4	& 16384\\
+256	& 1024	& 16	& 16384\\
+256	& 256	& 64	& 16384\\
+\hline
+\end{tabular}
+\end{minipage}
+\end{center}
 
 \section{Analysis}
 
