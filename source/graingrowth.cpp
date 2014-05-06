@@ -142,9 +142,9 @@ unsigned long generate(int dim, char* filename, int seeds, int nthreads) {
 template <int dim>
 struct update_thread_para {
 	MMSP::grid<dim,sparse<float> >* grid;
+	MMSP::grid<dim,sparse<float> >* update;
 	unsigned long nstart;
 	unsigned long nend;
-	MMSP::grid<dim,sparse<float> >* update;
 };
 
 template <int dim>
@@ -285,7 +285,7 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
         }
 
         delete [] p_threads ;
-        delete [] update_para ;
+		delete [] update_para ;
 
 		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
@@ -301,7 +301,6 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 	unsigned long total_update_time;
 	MPI::COMM_WORLD.Allreduce(&timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
 	return total_update_time/np; // average update time
-	return timer;
 }
 
 template <int dim>

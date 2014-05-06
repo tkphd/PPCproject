@@ -564,6 +564,12 @@ This peak is almost certainly due to data compression during output, which we di
 The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, and therefore the lower the write-performance.
 The inclusion of \texttt{zlib} in the \texttt{output\_bgq()} function also noticably degraded bandwidth:
 the peak value was only 15~MB/s.
+
+Aside from specific interest due to our research projects, we had hoped to compare file I/O performance for the Monte Carlo and phase-field algorithms side-by-side.
+Monte Carlo domains, with scalar-valued data, does not grow in size as the simulation progresses.
+Phase-field domains do: 
+the model enforces diffuse interfaces, producing a peak in file size after a 
+few hundred iterations as the interfaces
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-initBW}
@@ -572,25 +578,33 @@ the peak value was only 15~MB/s.
   \captionof{figure}{Parallel I/O bandwidth writing PVT-initialized (top) scalar-valued and (bottom) sparse-vector-valued meshes.\label{fig:vorob}}
 \end{minipage}
 \end{center}
+seek their equilibrium shapes.
+Considering Fig.~\ref{fig:compb}, the two bandwidths are very similar.
+Indeed, the file sizes are within 1~MB of one another;
+the expected peak filesize for a $512^3$ phase-field grid is $\sim$2.5~GB.
+Our 15-step cutoff was not enough to see a difference in bandwidth and, unfortunately, we were not able to collect larger files in the 30-minute timeframe provided for these simulations.
 
-
-\begin{center}
-\begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{img/prMC-comp}
-
-  \includegraphics[width=\textwidth]{img/pr-comp}
-  \captionof{figure}{Computation time for (top) 15 Monte Carlo steps and (bottom) 15 phase-field iterations.}
-\end{minipage}
-\end{center}
+The compute times (Fig.~\ref{fig:compt}) and
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-compBW}
 
   \includegraphics[width=\textwidth]{img/pr-compBW}
-  \captionof{figure}{Parallel I/O bandwidth writing the $15^{\mathrm{th}}$ (top) Monte Carlo step and (bottom) phase-field iteration.}
+  \captionof{figure}{Parallel I/O bandwidth writing the $15^{\mathrm{th}}$ (top) Monte Carlo step and (bottom) phase-field iteration.\label{fig:compb}}
 \end{minipage}
 \end{center}
+
+\begin{center}
+\begin{minipage}{0.4\textwidth}\centering
+  \includegraphics[width=\textwidth]{img/prMC-comp}
+
+  \includegraphics[width=\textwidth]{img/pr-comp}
+  \captionof{figure}{Computation time for (top) 15 Monte Carlo steps and (bottom) 15 phase-field iterations.\label{fig:compt}}
+\end{minipage}
+\end{center}
+
+
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
