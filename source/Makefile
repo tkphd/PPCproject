@@ -31,10 +31,10 @@ core = $(incdir)/MMSP.utility.hpp \
 
 # the program
 graingrowth.out: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(compiler) -DPHASEFIELD $(flags) $< -o $@ -lz
+	$(compiler) -DPHASEFIELD $(flags) $< -o $@ -lz -pthread
 
 parallel: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(pcompiler) -DBGQ -DPHASEFIELD $(flags) -include mpi.h $< -o parallel_GG.out -lz
+	$(pcompiler) -DPHASEFIELD $(flags) -include mpi.h $< -o parallel_GG.out -lz
 
 bgqmc: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(qcompiler) $(qflags) -DBGQ -DSILENT $< -o q_MC.out -lz

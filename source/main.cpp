@@ -301,8 +301,7 @@ int main(int argc, char* argv[]) {
 			init_bw = MMSP::output_bgq(*grid, filename);
 			init_bw *= clock_rate;
 			#else
-			init_bw = MMSP::output(*grid, filename);
-			init_bw *= clock_rate;
+			MMSP::output(*grid, filename);
 			#endif
 			iocycles = rdtsc() - iocycles;
 			unsigned long allio=0;
@@ -323,7 +322,9 @@ int main(int argc, char* argv[]) {
 			for (int i = iterations_start; i < steps; i += increment) {
 				comp_cycles = MMSP::update(*grid, increment, nthreads);
 				unsigned long allcomp = 0;
+				#ifdef MPI_VERSION
 				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
+				#endif
 				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
 
 				// generate output filename
@@ -346,7 +347,7 @@ int main(int argc, char* argv[]) {
 				#ifdef BGQ
 				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw = MMSP::output(*grid, filename);
+				MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;
@@ -385,8 +386,7 @@ int main(int argc, char* argv[]) {
 			init_bw = MMSP::output_bgq(*grid, filename);
 			init_bw *= clock_rate;
 			#else
-			init_bw = MMSP::output(*grid, filename);
-			init_bw *= clock_rate;
+			MMSP::output(*grid, filename);
 			#endif
 			iocycles = rdtsc() - iocycles;
 			unsigned long allio = 0;
@@ -406,7 +406,9 @@ int main(int argc, char* argv[]) {
 			for (int i = iterations_start; i < steps; i += increment) {
 				comp_cycles = MMSP::update(*grid, increment, nthreads);
 				unsigned long allcomp = 0;
+				#ifdef MPI_VERSION
 				MPI_Reduce(&comp_cycles, &allcomp, 1, MPI_DOUBLE, MPI_SUM, 0, MPI::COMM_WORLD);
+				#endif
 				if (rank==0) std::cout<<"comp_time(sec)\t"<<double(allcomp)/(np*clock_rate)<<std::endl;
 
 				// generate output filename
@@ -429,7 +431,7 @@ int main(int argc, char* argv[]) {
 				#ifdef BGQ
 				comp_bw = MMSP::output_bgq(*grid, filename);
 				#else
-				comp_bw = MMSP::output(*grid, filename);
+				MMSP::output(*grid, filename);
 				#endif
 				comp_bw *= clock_rate;
 				iocycles = rdtsc() - iocycles;

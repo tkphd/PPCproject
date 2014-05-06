@@ -296,6 +296,7 @@ void* swap_block_kernel(void* x)
 			if (int_type) {
 				char* q=p;
 				while (q<raw+size_in_mem) {
+					/*
 					// Each scalar contains one value. Swap it.
 					int size=0;
 					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
@@ -303,6 +304,9 @@ void* swap_block_kernel(void* x)
 					q+=sizeof(int);
 					swap_buffer<int>(reinterpret_cast<int*>(q), size);
 					q+=size*sizeof(int);
+					*/
+					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
+					q+=sizeof(int);
 				}
 			} else {
 				std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
