@@ -304,18 +304,35 @@ An example of 2-D grain growth using the phase-field physical model is given in 
 \end{minipage}\end{center}
 
 \subsection*{Two-Step I/O}
+MMSP data files are intended for checkpoint and visualization purposes.
+Each file is written with a human-readable header, followed by a direct dump of the local grid from each MPI rank.
+For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
+Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
+For 3-D simulations on reasonably large meshes, the compressed file sizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
+
 The stock MMSP distribution comes with an \texttt{output} function which synchronizes data sizes across all MPI ranks, sets a local offset, then calls \texttt{MPI\_File\_iwrite\_at} with a matching \texttt{MPI\_Wait}.
-The function works nicely for relatively small problems:
-on the CCI Opteron cluster, grids of $400^3$ nodes wrote to disk on up to $192$ MPI ranks.
+The function is represented schematically in Fig.~\ref{fig:stockio}, with $8$ MPI ranks writing roughly $17$ MB of data, or $2.125$ blocks on the GPFS.
+This filesize is typical for Poisson-Voronoi tessellations on 3-D meshes of $512^3$ nodes, storing an \texttt{int} or \texttt{float} at each node.
+The function works nicely for relatively low levels of parallelization:
+as depicted, with a handful of ranks, there is only modest contention for common blocks on the filesystem.
+On the CCI Opteron cluster, 3-D meshes of $400^3$ nodes wrote to disk on up to $192$ MPI ranks.
 However, the stock function has never worked on our Blue Gene systems:
 neither the Blue Gene/P nor AMOS ever wrote a complete MMSP file to disk.
 In the rare case when the file had non-zero size, it was too small by an integer multiple of the size-per-rank expected:
 some ranks were simply barred from contributing to the file.
-For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
 
-Since the MMSP grid can grow fairly large, \texttt{zlib} compression is used on-the-fly;
-filesizes range between $10$ MB for the initial condition to $3$ GB for intermediate stages of grain growth.
 Our working hypothesis for AMOS's failure to write is that dividing the smaller files among thousands of processors created extreme contention for common blocks on the parallel filesystem, or else multiple GPFS servers attempted to allocate space for the same block.
+For a typical simulation on AMOS, each block would receive write requests from $\mathcal{O}(100)$ ranks.
+Past experience suggests this is beyond ROMIO's capacity to smoothly handle.
+
+We have resolved the critical file I/O conflict by implementing a two-stage approach:
+a set of MPI ranks equal to the number of filesystem blocks to be written are labelled ``aggregators,'' and each initializes a filesystem-block-sized buffer with a chunk of local data at the root.
+Non-aggregators send data to the aggregator immediately downstream, using \texttt{MPI\_Isend}.
+Once the file buffers are full, the aggregators write to disk.
+The procedure is represented schematically in Fig.~\ref{fig:bgqio}.
+It was designed to minimize data transmission by keeping the largest amount of data local to each aggregator as possible.
+The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \cite{Carothers2010,Carothers2011}.
+
 
 \begin{minipage}{0.475\textwidth}
 \begin{center}
@@ -337,7 +354,7 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
   \node[nb] at ($(sn)+(0.25,-10\baselineskip)$) {Size of data};
   \node[nz,minimum height=2cm,text width=4cm] at ($(sn)+(-2.75,-16\baselineskip)$) {Block N Data};
 \end{tikzpicture}
-\captionof{figure}{MMSP file format. Fields surrounded by black boxes are ASCII, blue are binary, red are \texttt{zlib}-compressed binary.\label{fig:file}}
+\captionof{figure}{MMSP checkpoint file format. Fields surrounded by black boxes are ASCII, blue are binary, red are \texttt{zlib}-compressed binary.\label{fig:file}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
@@ -391,7 +408,7 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
   \node[zblock,minimum height=1.5em] at ($(8,-15em)+(0,-2.625*7)$) { };
   \path[->,out=0,in=180] ($(2em,-8em)+(4,-3.5*7)$) edge ($(2em,-15em)+(6.375,-2.625*7)$);
 \end{tikzpicture}
-\captionof{figure}{Schematic of data movement in stock \texttt{output()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:stockio}}
+\captionof{figure}{Schematic of data movement in stock \texttt{MMSP::output()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}. In this example, each MPI rank writes to disk. The filesize is slightly larger than two GPFS blocks, a common situation when writing initial conditions. For massively parallel systems, such as AMOS, this scenario overtaxes the GPFS backend.\label{fig:stockio}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
@@ -468,10 +485,12 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
   \node[zblock,minimum height=1.5em] at ($(12,-15em)+(0,-2.625*7)$) { };
   \path[->,out=0,in=180] ($(2em,-8.125em)+(8,-3.5*6)$) edge ($(2em,-15em)+(10.375,-2.625*7)$);
 \end{tikzpicture}
-\captionof{figure}{Schematic of data movement in two-stage aggregating \texttt{output\_bgq()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:bgqio}}
+\captionof{figure}{Schematic of data movement in our two-stage aggregating \texttt{MMSP::output\_bgq()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. In this example, MPI ranks 0, 3, and 7 are aggregators and writers. The filesize is slightly larger than two GPFS blocks, a common situation when writing initial conditions. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:bgqio}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
+
+
 
 \section{Results}
 
@@ -498,8 +517,10 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
 \begin{footnotesize}
 \begin{thebibliography}{1}
   \bibitem{Steinbach1999} I.~Steinbach and F.~Pezzolla. ``A generalized field method for multiphase transformations using interface fields.'' \emph{Physica D: Nonlinear Phenomena} \textbf{134} (1999) 385--393.
-  \bibitem{Wright} S. ~Wright et al. "Potts-model grain growth simulations: Parallel algorithms and applications." \emph{SAND Report} (1997) 1925.
-  \bibitem{Shim} Y. ~Shim and A. ~Jacques. "Synchronous sublattice algorithm for parallel kinetic Monte Carlo." \emph{arXiv preprint cond-mat} \textbf{0406379} (2004).
+  \bibitem{Wright} S.A.~Wright, S.J.~Plimpton, T.P.~Swiler, R.M.~Fye, M.F.~Young, and E.A.~Holm. ``Potts-model grain growth simulations: Parallel algorithms and applications.'' \emph{SAND Report} (1997) 1925.
+  \bibitem{Shim} Y.~Shim and J.G.~Amar. ``Synchronous sublattice algorithm for parallel kinetic Monte Carlo.'' \emph{arXiv preprint cond-mat} (2004) 0406379.
+  \bibitem{Carothers2010} J.~Fu, N.~Liu, O.~Sahni, K.~Jansen, M.~Shephard, and C.D.~Carothers. ``Scalable parallel I/O alternatives for massively parallel partitioned solver systems.'' \emph{IEEE International Symposium on Parallel Distributed Processing} (2010) 1--8.
+  \bibitem{Carothers2011} J.~Fu, M.~Min, R.~Latham, and C.D.~Carothers. ``Parallel I/O Performance for Application-Level Checkpointing on the Blue Gene/P System.'' \emph{CLUSTER} (2011) 465--473.
 \end{thebibliography}
 \end{footnotesize}
 \end{multicols*}
