@@ -24,8 +24,6 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI_Status status;
 	int mpi_err = 0;
 
-	unsigned long writecycles = 0;
-
 	// Read filesystem block size (using statvfs). Default to 4096 B.
 	struct statvfs buf;
 	const unsigned long blocksize = (statvfs(".", &buf) == -1)?4096:buf.f_bsize;
@@ -110,6 +108,8 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#ifdef DEBUG
 	if (rank==0) std::cout<<"  Preparing "<<nwriters<<" aggregator/writers; writesize is "<<writesize<<" B, with "<<excessblocks<<" excess blocks."<<std::endl;
 	#endif
+
+	unsigned long writecycles = rdtsc();
 
 	// Scan to determine which ranks are writers
 	writeranks = new unsigned int[nwriters+1];
