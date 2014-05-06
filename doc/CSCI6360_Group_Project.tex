@@ -96,7 +96,6 @@ The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on A
   \captionof{figure}{Voronoi tessellation produced by our code on AMOS ($1024\times1024$ mesh, $3336$ seeds; $1024$ threads). Runtime: 0.07 sec. Note the straight edges.\label{fig:voro}}
 \end{minipage}\end{center}
 
-
 \begin{minipage}{0.45\textwidth}
 \begin{center}
 \begin{lstlisting}
@@ -143,15 +142,33 @@ void PVT(MMSP::grid& grid, int nseeds=10000)
 \vskip\baselineskip
 \end{minipage}
 
+
 \subsection*{Potts Monte Carlo Model}
-The overall grid is portioned in to different local grids so that each processor is assigned a contiguous subgrid.
-In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box.
-Each processor also stores a copy of the narrow strips (or planes in three dimensions) of lattice sites that immediately adjoin its sub-domain and which are actually owned by neighboring processors.
-This allows a processor to check neighboring spin values of sites on the edge of its sub-domain.
-With these data structures, every processor can now simultaneously flip spins in its sub-domain without violating the rule of detailed balance, 
-so long as one processor does not choose a lattice site on an edge of its sub-domain at the same time the processor adjoining that edge does likewise.
-We enforce this restriction in our parallel Potts algorithm by ``slicing'' the subgrid as shown in Figure 1. 
-lattice site is represented by a square (not the corners of the square) and assigned a ``sublattice'' number, 0 or 1.
+In a regular 2D or 3D lattice with N lattice sites, each site has \emph{n} neighbors. S$^0_\emph{i}$ is the grain ID at lattice site \emph{i}, where \emph{i}=1,\emph{N}. J is the grain boundary free energy per unit area between adjacent lattice sites. Then the total grain boundary energy of the system is:
+\begin{equation}
+E = \frac{J}{2}\sum_{i=1}^{N} \sum_{j=1}^{n} (1 - \delta_{S^0_\emph{i} S^j_\emph{i}})
+\label{eqn:laplacian}
+\end{equation}
+
+where $\delta_{S^0_\emph{i} S^j_\emph{i}}$ is the Kronecker $\delta$ (1 if $S^0_\emph{i}=S^j_\emph{i}$, 0 if $S^0_\emph{i} \neq S^j_\emph{i}$)
+
+In serial, the Potts Monte Carlo algorithm is below:\\
+(1) Q possible grain IDs.\\
+(2) Randomly choose a site \emph{i}.\\
+(3) Randomly choose a new grain ID at site \emph{i}.\\
+(4) Compute the change in total system energy $\Delta$ E\\
+(5) The probability of accepting the new orientation is (Metropolis transition function)\\
+\begin{equation}
+p(\Delta E) =\begin{cases} 1 & if \Delta E \le 0 \\ exp(-\Delta E/kT) & if \Delta E > 0 \end{cases}
+\label{eqn:laplacian}
+\end{equation}
+(6) One Monte Carlo Step (MCS) is defined as \emph{N} resetting grain ID attempts. \\
+
+The serial Potts algorithm is not parallelizable for assigning each of P processors a subset of the loop iterations. This is because if step (2) is executed simultaneously on multiple processors, then two (or more) processors may pick adjacent (or the same) lattice sites. If this occurs, then when the two processors execute step (3), they will each attempt to flip the spin of their lattice site using incorrect information about neighboring spins (each other). This would violate the Monte Carlo rule of "detailed balance" which demands that two (or more) sites not be flipped simultaneously.
+
+The parallelizable Potts Monte Carlo algorithm\cite{Wright,Shim} is to partion the overall grid  into different local grids so that each processor is assigned a contiguous subgrid. In two dimensions this is a small rectangular section, and in three dimensions it is a rectangular box. Each processor also stores a copy of the narrow strips (or planes in three dimensions) of lattice sites that immediately adjoin its sub-domain and which are actually owned by neighboring processors. 
+
+This allows a processor to check neighboring spin values of sites on the edge of its sub-domain. With these data structures, every processor can now simultaneously flip spins in its sub-domain without violating the rule of detailed balance, so long as one processor does not choose a lattice site on an edge of its sub-domain at the same time the processor adjoining that edge does likewise. We enforce this restriction in our parallel Potts algorithm by "slicing" the subgrid as shown in Figure 1. lattice site is represented by a square (not the corners of the square) and assigned a ``sublattice'' number, 0 or 1.
 
 A subgrid is divided into sublattices as in Figure 1, where only the lattice sites assigned to sublattice-0 are now shown as shaded.
 The key point is that the 2 neighbors of a sublattice-0 lattice site do not include any other sublattice-0 lattice sites.
@@ -160,32 +177,51 @@ The parallel Monte Carlo Potts grain growth algorithm for one sweep can now be w
 \begin{minipage}{0.475\textwidth}
 \begin{center}
 \begin{lstlisting}
-Loop over sublattice (i)
-  Loop over all lattice sites of sublattice i within my subgrid
-    Pick a new spin value randomly.
-    Compute the energy change for the site to change to the new spin.
-    Accept or reject the change based on the Boltzmann criterion.
-  End lattice site loop
-  Exchange sites along edge of my subgrid with neighboring processors to acquire current neighbor spin values.
-End color loop
+in each processor
+number of subgrids = number of pthreads;
+number of sublattice = 2;
+  in subgrid-m (1=<m<=number of subgrids)
+  {
+    sublattice-1 = {sites with even x coordinates};
+    sublattice-2 = {sites with odd x coordinates};  
+  }
+  in pthread-k with subgrid-k (1=<k<=number of pthreads)
+  {
+    For(i = 1; i<=number of sublattice; i++)
+    { 
+      For(j = 1; j<=number of sites in sublattice-i; j++)
+      {
+        Pick a site in sublattice-i randomly;
+        Flip the grain ID to be a random value of its neighbors';
+        Compute the change of total system energy;
+        Accept or reject the change based on the Boltzmann criterion as in serial algorithm step (5);
+      }
+      Exchange grain IDs of boundary sites with neighboring processors;
+    }
+  }
+}
 \end{lstlisting}
 \captionof{lstlisting}{Monte Carlo algorithm.\label{lst:mc}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
 
-This algorithm works for both 2-D and 3-D lattices. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
+This algorithm works for both 2-D and 3-D grid. Also, the communication of subgrid ``edges'' becomes ``planes'' in 3-D. 
+This algorithm is not embarassingly parallel for the following aspects:\\
+(1) Information on neighboring processors affects physics of the local processor. \\
+(2) There are communications among neighboring subgrids.\\
+(3) Threads are adde into the fliping of grain ID of points.\\
 
 
 \begin{center}
 \begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[width=\textwidth]{mc-fig-01}
+  \includegraphics[height=1.75in]{mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
 \end{minipage}
 
 \begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[height=6.5in]{mc-fig-02}
-  \captionof{figure}{\emph{No caption provided.}\label{fig:mc2}}
+  \includegraphics[height=6.5in]{flow_chart.pdf}
+  \captionof{figure}{Flowchart of parallel Potts Monte Carlo algorithm.\label{fig:mc2}}
 \end{minipage}
 \end{center}
 
@@ -325,6 +361,8 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
 \begin{footnotesize}
 \begin{thebibliography}{1}
   \bibitem{Steinbach1999} I.~Steinbach and F.~Pezzolla. ``A generalized field method for multiphase transformations using interface fields.'' \emph{Physica D: Nonlinear Phenomena} \textbf{134} (1999) 385--393.
+  \bibitem{Wright} S. ~Wright et al. "Potts-model grain growth simulations: Parallel algorithms and applications." \emph{SAND Report} (1997) 1925.
+  \bibitem{Shim} Y. ~Shim and A. ~Jacques. "Synchronous sublattice algorithm for parallel kinetic Monte Carlo." \emph{arXiv preprint cond-mat} \textbf{0406379} (2004).
 \end{thebibliography}
 \end{footnotesize}
 \end{multicols*}
