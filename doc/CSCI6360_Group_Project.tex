@@ -78,21 +78,22 @@ We selected two strong-scaling grain growth models -- Potts Monte Carlo and phas
 
 \subsection*{Voronoi Tessellation}
 3-D simulations need a starting point, and the Poisson-Voronoi tessellation is the most common for grain growth simulations.
-These tessellations are the combination of a Poisson point process for generating random seed (or control) points, followed by the Voronoi tessellation of space around those seeds;
+These tessellations are the combination of a Poisson point process for generating random seed points, followed by the Voronoi tessellation of space around those seeds;
 that is to say, any point in space closer to one seed than any other belongs to that seed's domain.
 This is done using the algorithm in Listing~\ref{lst:voro}, for a mesh containing $N$ nodes; it is a na\"ive algorithm, but easy to parallelize.
 Since the Voronoi tessellation is embarassingly parallel, we chose not to devote resources to improving this implementation.
 We did, however, modify the reference algorithm in the following ways:
 \begin{enumerate}
  \item Instead of an \texttt{MPI\_Allgather} over every MPI rank, we determined which ranks were adjacent along a domain face or through a domain corner, and retrieved seeds from those ranks, only.
- \item We implemented pthreads by subdividing the loop \code{for (n=0; n<N; n++)} among the available threads, \code{for (n=nlo; n<nhi; n++)}.
+ \item We implemented pthreads by subdividing the loop \code{for (n=0; n<N; n++)} among the available threads, \code{for (n=nlo; n<nhi; n++)} with \texttt{nlo}$\geq0$ and \texttt{nhi<N} defined for each thread.
+ \item Instead of the built-in random number generator, we generate seeds with the Mersenne twister.
 \end{enumerate}
 This reduced the runtime from $\mathcal{O}(2\ \mathrm{hours})$ to under a minute.
 The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on AMOS is provided in Fig.~\ref{fig:voro}.
 
 \begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{voronoi}
-  \captionof{figure}{Voronoi tessellation produced by our code (2-D).\label{fig:voro}}
+  \captionof{figure}{Voronoi tessellation produced by our code on AMOS ($1024\times1024$ mesh, $3336$ seeds; $1024$ threads). Runtime: 0.07 sec. Note the straight edges.\label{fig:voro}}
 \end{minipage}
 
 
@@ -103,7 +104,7 @@ The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on A
 typedef struct {
   int x; int y; int z;
 } int3;
-void PVT(MMSP::grid& grid, int nseeds)
+void PVT(MMSP::grid& grid, int nseeds=10000)
 {
   int np = MPI::COMM_WORLD.Get_size();
   while (nseeds%np != 0) ++nseeds;
@@ -223,7 +224,7 @@ int main()
 {
   MMSP::grid pfgrid;
   MMSP::grid newgrid;
-  initialize(pfgrid);
+  PVT(pfgrid);
   for (t=0; t<T; t++) {
     ghostswap(pfgrid);
     for (n=0; n<N; n++)
@@ -233,7 +234,7 @@ int main()
   return 0;
 }
 \end{lstlisting}
-\captionof{lstlisting}{Phase-field algorithm.\label{lst:pf}}
+\captionof{lstlisting}{Phase-field algorithm. \texttt{PVT()} was given in Listing~\ref{lst:voro}; \texttt{update()} implements Eqn.~\ref{eqn:pf}.\label{lst:pf}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
@@ -241,13 +242,21 @@ int main()
 The independence of computation from communication and the increasing communication overhead associated with adding MPI ranks makes pthreading a favorable approach for maximizing performance in this model.
 To use pthreads, Listing~\ref{lst:pf} is modified simply to loop over \code{n=nlo; n<nhi; n++}, with \texttt{nlo}$\geq0$ and \texttt{nhi}$<$\texttt{N} defined for each pthread.
 
+An example of 2-D grain growth is given in Fig.~\ref{fig:vorogg}.
+
+\begin{minipage}{0.45\textwidth}\centering
+  \includegraphics[width=\textwidth]{graingrowth}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 13 minutes. Note the curved edges.\label{fig:vorogg}}
+\end{minipage}
 
 \subsection*{Two-Step I/O}
 The stock MMSP distribution comes with an \texttt{output} function which synchronizes data sizes across all MPI ranks, sets a local offset, then calls \texttt{MPI\_File\_iwrite\_at} with a matching \texttt{MPI\_Wait}.
 The function works nicely for relatively small problems:
 on the CCI Opteron cluster, grids of $400^3$ nodes wrote to disk on up to $192$ MPI ranks.
-However, the stock function has never worked on our Blue Gene systems: neither the Blue Gene/P nor AMOS ever wrote a complete MMSP file to disk.
-In the rare case when the file had non-zero size, it was too small by an integer multiple of the size-per-rank expected: some ranks were simply barred from contributing to the file.
+However, the stock function has never worked on our Blue Gene systems:
+neither the Blue Gene/P nor AMOS ever wrote a complete MMSP file to disk.
+In the rare case when the file had non-zero size, it was too small by an integer multiple of the size-per-rank expected:
+some ranks were simply barred from contributing to the file.
 For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
 \begin{minipage}{0.475\textwidth}
 \begin{center}

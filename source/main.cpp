@@ -659,6 +659,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	MMSP::Finalize();
+
+	return 0;
 }
 
 #endif
