@@ -12,7 +12,7 @@
 \definecolor{codebg}{gray}{0.8}
 \renewcommand{\headrulewidth}{0.01in} \renewcommand{\footrulewidth}{0.01in}
 \newcommand{\code}[1]{\colorbox{codebg}{\texttt{\footnotesize{#1}}}}
-\lstset{basicstyle=\footnotesize\ttfamily,language=bash,backgroundcolor=\color{codebg},xleftmargin=0pt,breaklines=true,alsoletter={--,/,[,=},alsodigit={-},showstringspaces=false,breakindent=0em,prebreak={ \textbackslash},postbreak={\phantom{m}}}
+\lstset{language=C++,basicstyle=\footnotesize\ttfamily,language=bash,backgroundcolor=\color{codebg},xleftmargin=0pt,breaklines=true,alsoletter={--,/,[,=},alsodigit={-},showstringspaces=false,breakindent=0em,prebreak={ \textbackslash},postbreak={\phantom{m}}}
 \usetikzlibrary{arrows,calc,backgrounds}
 \tikzstyle{na} = [rectangle,draw=black,anchor=west]
 \tikzstyle{nb} = [rectangle,draw=blue,anchor=west]
@@ -77,6 +77,70 @@ only the accumulator ranks write to disk, once their output buffers are full.
 We selected two strong-scaling grain growth models -- Potts Monte Carlo and phase-field -- for comparison.
 
 \subsection*{Voronoi Tessellation}
+3-D simulations need a starting point, and the Poisson-Voronoi tessellation is the most common for grain growth simulations.
+These tessellations are the combination of a Poisson point process for generating random seed (or control) points, followed by the Voronoi tessellation of space around those seeds;
+that is to say, any point in space closer to one seed than any other belongs to that seed's domain.
+This is done using the algorithm in Listing~\ref{lst:voro}, for a mesh containing $N$ nodes; it is a na\"ive algorithm, but easy to parallelize.
+Since the Voronoi tessellation is embarassingly parallel, we chose not to devote resources to improving this implementation.
+We did, however, modify the reference algorithm in the following ways:
+\begin{enumerate}
+ \item Instead of an \texttt{MPI\_Allgather} over every MPI rank, we determined which ranks were adjacent along a domain face or through a domain corner, and retrieved seeds from those ranks, only.
+ \item We implemented pthreads by subdividing the loop \code{for (n=0; n<N; n++)} among the available threads, \code{for (n=nlo; n<nhi; n++)}.
+\end{enumerate}
+This reduced the runtime from $\mathcal{O}(2\ \mathrm{hours})$ to under a minute.
+The final result of a Voronoi tessellation in 2-D ($1024^2$ mesh) performed on AMOS is provided in Fig.~\ref{fig:voro}.
+
+\begin{minipage}{0.45\textwidth}\centering
+  \includegraphics[width=\textwidth]{voronoi}
+  \captionof{figure}{Voronoi tessellation produced by our code (2-D).\label{fig:voro}}
+\end{minipage}
+
+
+\begin{minipage}{0.45\textwidth}
+\begin{center}
+\begin{lstlisting}
+#include<cmath>
+typedef struct {
+  int x; int y; int z;
+} int3;
+void PVT(MMSP::grid& grid, int nseeds)
+{
+  int np = MPI::COMM_WORLD.Get_size();
+  while (nseeds%np != 0) ++nseeds;
+  int S = nseeds/np;
+  int3* seeds = new int3[S];
+  int3* all_seeds = new int3[nseeds];
+  for (i=0; i<nseeds; i++) {
+    seeds[i].x=rand()%grid.xlength();
+    seeds[i].y=rand()%grid.ylength();
+    seeds[i].z=rand()%grid.zlength();
+  }
+  S *= 3;
+  nseeds *= 3; 
+  MPI_Allgather(seeds, S, MPI_INT, all_seeds, nseeds, MPI_INT, MPI_Comm_World);
+  S /= 3;
+  nseeds /= 3;
+  for (n=0; n<N; n++) {
+    int3 pos = MMSP::position(grid, n);
+    int best;
+    double min = std::pow(domain_size, 2);
+    for (i=0; i<nseeds; i++) {
+      dist = std::sqrt(std::pow(pos.x - seeds[i].x, 2) + std::pow(pos.y - seeds[i].y, 2) + std::pow(pos.z - seeds[i].z, 2))
+      if (dist<min) {
+	best = i;
+	min=dist;
+      }
+    }
+    grid(n) = best;
+  }
+  delete [] seeds;
+  delete [] all_seeds;
+}
+\end{lstlisting}
+\captionof{lstlisting}{Na\"ive Poisson-Voronoi tessellation algorithm.\label{lst:voro}}
+\end{center}
+\vskip\baselineskip
+\end{minipage}
 
 \subsection*{Potts Monte Carlo Model}
 The overall grid is portioned in to different local grids so that each processor is assigned a contiguous subgrid.
@@ -113,7 +177,7 @@ This algorithm works for both 2-D and 3-D lattices. Also, the communication of s
 
 
 \begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[height=1.75in]{mc-fig-01}
+  \includegraphics[width=\textwidth]{mc-fig-01}
   \captionof{figure}{Slicing subgrid into sublattice used for parallel Potts grain growth algorithm.\label{fig:mc1}}
 \end{minipage}
 
@@ -189,7 +253,7 @@ For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
 \begin{center}
 \begin{tikzpicture}[scale=0.5]
   \node[na](gh){MMSP Grid: Master Header};
-  \node[na] at ($(gh)+(-2,-3\baselineskip)$) {Type (scalar, vector, sparse; int, float)};
+  \node[na] at ($(gh)+(-2,-3\baselineskip)$) {Type (scalar, vector, sparse)};
   \node[na] at ($(gh)+(-2,-6\baselineskip)$) {Dimensions (1, 2, 3)};
   \node[na] at ($(gh)+(-2,-9\baselineskip)$) {Fields (0 or 1)};
   \node[na,text width=3cm] at ($(gh)+(-2,-14\baselineskip)$) {Length along $x$ Length along $y$ Length along $z$};
@@ -197,15 +261,15 @@ For reference, the MMSP file structure is presented in Fig.~\ref{fig:file}.
   \node[nb] at ($(gh)+(-2,-26\baselineskip)$) {Number of blocks};
   \node[nb](sh) at ($(gh)+(-5,-29\baselineskip)$) {Block 0 Header};
   \node[nb,text width=3cm] at ($(sh)+(0.25,-5\baselineskip)$) {Position along $x$ Position along $y$ Position along $z$};
-  \node[nb] at ($(sh)+(0.25,-10\baselineskip)$) {Number of nodes};
+  \node[nb] at ($(sh)+(0.25,-10\baselineskip)$) {Size of data};
   \node[nz,minimum height=2cm,text width=4cm] at ($(sh)+(-2.75,-16\baselineskip)$) {Block 0 Data};
-  \node[nz,minimum height=2\baselineskip,minimum width=4.25cm] at ($(sh)+(-2.75,-23\baselineskip)$) {...};
+  \node[nb,minimum height=1.5\baselineskip,minimum width=4.25cm] at ($(sh)+(-2.75,-23\baselineskip)$) {...};
   \node[nb](sn) at ($(sh)+(-2.75,-27\baselineskip)$) {Block N Header};
   \node[nb,text width=3cm] at ($(sn)+(0.25,-5\baselineskip)$) {Position along $x$ Position along $y$ Position along $z$};
-  \node[nb] at ($(sn)+(0.25,-10\baselineskip)$) {Number of nodes};
+  \node[nb] at ($(sn)+(0.25,-10\baselineskip)$) {Size of data};
   \node[nz,minimum height=2cm,text width=4cm] at ($(sn)+(-2.75,-16\baselineskip)$) {Block N Data};
 \end{tikzpicture}
-\captionof{figure}{MMSP file format. Fields surrounded by black text are ASCII, blue are binary, red are \texttt{zlib}-compressed binary.\label{fig:file}}
+\captionof{figure}{MMSP file format. Fields surrounded by black boxes are ASCII, blue are binary, red are \texttt{zlib}-compressed binary.\label{fig:file}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
