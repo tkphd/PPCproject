@@ -360,7 +360,7 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
 \end{minipage}
 
 
-\begin{minipage}{0.475\textwidth}
+\begin{minipage}{0.45\textwidth}
 \begin{center}
 \begin{tikzpicture}[scale=0.5]
   % Column titles
@@ -413,7 +413,7 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
 \vskip\baselineskip
 \end{minipage}
 
-\begin{minipage}{0.475\textwidth}
+\begin{minipage}{0.45\textwidth}
 \begin{center}
 \begin{tikzpicture}[scale=0.5]
   % Column titles
@@ -485,7 +485,7 @@ The approach is similar to the ``reduced blocking I/O'' (rbIO) used in PHASTA \c
   \node[zblock,minimum height=1.5em] at ($(12,-15em)+(0,-2.625*7)$) { };
   \path[->,out=0,in=180] ($(2em,-8.125em)+(8,-3.5*6)$) edge ($(2em,-15em)+(10.375,-2.625*7)$);
 \end{tikzpicture}
-\captionof{figure}{Schematic of data movement in our two-stage aggregating \texttt{MMSP::output\_bgq()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. In this example, MPI ranks 0, 3, and 7 are aggregators and writers. The filesize is slightly larger than two GPFS blocks, a common situation when writing initial conditions. Colors have the same meaning as in Fig.~\ref{fig:file}.\label{fig:bgqio}}
+\captionof{figure}{Schematic of data movement in our two-stage aggregating \texttt{MMSP::output\_bgq()} function. Colors have the same meaning as in Fig.~\ref{fig:file}. In this example, MPI ranks 0, 3, and 7 are aggregators: the arrows from data buffers represent \texttt{MPI\_Isend}s from upstream MPI ranks, followed by \texttt{MPI\_File\_Iwrite\_at} from the aggregators, only. The smaller number of larger I/O requests are easily served by the GPFS backend.\label{fig:bgqio}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
