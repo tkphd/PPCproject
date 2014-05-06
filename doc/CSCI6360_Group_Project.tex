@@ -193,7 +193,7 @@ An example of 2-D grain growth using the Potts Monte Carlo physical model is giv
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{graingrowth-mc}
-  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 18 minutes. Note the curved edges.\label{fig:voroggmc}}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 18 minutes. Note the curved edges.\label{fig:voroggmc}}
 \end{minipage}\end{center}
 
 
@@ -255,7 +255,7 @@ An example of 2-D grain growth using the phase-field physical model is given in 
 
 \begin{center}\begin{minipage}{0.45\textwidth}\centering
   \includegraphics[width=\textwidth]{graingrowth}
-  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations; $1024$ threads). Runtime: 13 minutes. Note the curved edges, and smaller grains than the Potts MC model.\label{fig:vorogg}}
+  \captionof{figure}{Grain growth produced by our phase-field code on AMOS ($5000$ iterations, $1024$ threads). Runtime: 13 minutes. Note the curved edges, and smaller grains than the Potts MC model.\label{fig:vorogg}}
 \end{minipage}\end{center}
 
 \subsection*{Two-Step I/O}
@@ -302,7 +302,9 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
 
 \section{Results}
 
+
 \section{Analysis}
+
 
 \section{Conclusions}
 
@@ -310,13 +312,13 @@ Our working hypothesis for AMOS's failure to write is that dividing the smaller 
 \section{Contributions}
 \begin{itemize}
  \item Kun Huang\\
-	pthread MC
+	MC algorithm implementation and pthreading
  \item Trevor Keller\\
-	serial PF, MPI-IO
+	Voronoi algorithm selection and implementation; parallel PF selection and implementation; MPI-IO algorithm design and implementation
  \item Congrui Li\\
-	pthread PF
+	pthread PF and Voronoi
  \item Yixuan Tan\\
-	serial MC
+	MC algorithm selection and implementation
 \end{itemize}
 
 \label{LastPage}
