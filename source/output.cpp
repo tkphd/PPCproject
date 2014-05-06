@@ -16,8 +16,8 @@ template <int dim,typename T>
 double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 {
 	/* MPI-IO to the filesystem with writes aligned to blocks */
-
 	MPI::COMM_WORLD.Barrier();
+	unsigned long writecycles = rdtsc();
 	const unsigned int rank = MPI::COMM_WORLD.Get_rank();
 	const unsigned int np = MPI::COMM_WORLD.Get_size();
 	MPI_Request request;
@@ -108,8 +108,6 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	#ifdef DEBUG
 	if (rank==0) std::cout<<"  Preparing "<<nwriters<<" aggregator/writers; writesize is "<<writesize<<" B, with "<<excessblocks<<" excess blocks."<<std::endl;
 	#endif
-
-	unsigned long writecycles = rdtsc();
 
 	// Scan to determine which ranks are writers
 	writeranks = new unsigned int[nwriters+1];
