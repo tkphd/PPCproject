@@ -149,18 +149,18 @@ void PVT(MMSP::grid& grid, int nseeds=10000)
 
 
 \subsection*{Potts Monte Carlo Model}
-In a regular 2D or 3D lattice with N lattice sites, each site has \emph{n} neighbors. S$^0_\emph{i}$ is the grain ID at lattice site \emph{i}, where \emph{i}=1,\emph{N}. J is the grain boundary free energy per unit area between adjacent lattice sites. Then the total grain boundary energy of the system is:
+In a regular 2D or 3D lattice with $N$ lattice sites, each site has $n$ neighbors. S$^0_i$ is the grain ID at lattice site $i$, where $i=[1,N]$. $J$ is the grain boundary free energy per unit area between adjacent lattice sites. Then the total grain boundary energy of the system is:
 \begin{equation}
-E = \frac{J}{2}\sum_{i=1}^{N} \sum_{j=1}^{n} (1 - \delta_{S^0_\emph{i} S^j_\emph{i}})
+E = \frac{J}{2}\sum_{i=1}^{N} \sum_{j=1}^{n} (1 - \delta_{S^0_i S^j_i})
 \label{eqn:pottsE}
 \end{equation}
 
-where $\delta_{S^0_\emph{i} S^j_\emph{i}}$ is the Kronecker delta function (1 if $S^0_\emph{i}=S^j_\emph{i}$, 0 if $S^0_\emph{i} \neq S^j_\emph{i}$)
+where $\delta_{S^0_i S^j_i}$ is the Kronecker delta function (1 if $S^0_i=S^j_i$, 0 if $S^0_i \neq S^j_i$)
 
 In serial, the Potts Monte Carlo algorithm is below:\\
 (1) Q possible grain IDs.\\
-(2) Randomly choose a site \emph{i}.\\
-(3) Randomly choose a new grain ID at site \emph{i}.\\
+(2) Randomly choose a site $i$.\\
+(3) Randomly choose a new grain ID at site $i$.\\
 (4) Compute the change in total system energy $\Delta E$\\
 (5) The probability of accepting the new orientation is (Metropolis transition function)\\
 \begin{equation}
@@ -222,7 +222,7 @@ This algorithm is not embarassingly parallel for the following aspects:\\
 
 \begin{center}
 \begin{minipage}{0.475\textwidth}\centering
-  \includegraphics[height=7.25in]{flow_chart.pdf}
+  \includegraphics[height=7.125in]{img/flow_chart.pdf}
   \captionof{figure}{Flowchart of parallel Potts Monte Carlo algorithm.\label{fig:mc2}}
 \end{minipage}
 \end{center}
