@@ -3,7 +3,7 @@ PPCproject
 
 RPI CSCI-6360 Parallel Programming &amp; Computing 2014: Group Project
 
-If you wish to contribute to this code, please fork the repository into your GitHub account before cloning.
+If you wish to contribute to this code, please fork this repository (http://github.com/fifthblackbird/PPCproject) into your GitHub account before cloning.
 
 This is a group project intended to implement POSIX threads and to improve MPI-IO performance in MMSP (http://github.com/mesoscale/mmsp).
 
