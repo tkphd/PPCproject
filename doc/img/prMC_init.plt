@@ -12,11 +12,13 @@ set ytics font ",18"
 #set logscale y
 
 
-set xlabel "Number of Pthreads" 
+set xlabel "pthreads per rank"
 set ylabel "Init Time (s)"
 
 set key right bottom
 set border lw 3
+
+#f(x) = 60/x
 
 plot \
 "< sort -nk 3 prMC_N32.dat" u 3:4 w lp  lw 2 title "32 Nodes" ,\

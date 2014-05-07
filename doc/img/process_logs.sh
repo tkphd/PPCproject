@@ -2,6 +2,8 @@
 rm pr_*.dat
 rm prMC_*.dat
 
+rsync cci:~/barn/project/pr*.log ./
+
 for f in proj_32_*.log
 do
 	len=`wc -l $f | awk '{print $1}'`
@@ -78,3 +80,4 @@ do
 	fi
 done
 
+for f in *.plt; do gnuplot $f; done

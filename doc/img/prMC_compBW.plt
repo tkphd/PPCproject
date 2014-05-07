@@ -11,8 +11,8 @@ set ytics font ",18"
 #set logscale y
 
 
-set xlabel "Number of Pthreads" 
-set ylabel "Compute Bandwidth (MB/s)"
+set xlabel "pthreads per rank"
+set ylabel "Bandwidth (MB/s), 20 MB checkpoint"
 
 set border lw 3
 
