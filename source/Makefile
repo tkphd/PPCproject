@@ -55,4 +55,4 @@ mmsp2vtk: mmsp2vtk.cpp $(core)
 	$(compiler) $(flags) $< -o $@ -lz
 
 clean:
-	rm -rf graingrowth.out parallel_GG.out q_GG.out q_MC.out wrongendian.out
+	rm -rf graingrowth.out parallel_GG.out parallel_MC.out q_GG.out q_MC.out wrongendian.out
