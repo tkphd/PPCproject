@@ -678,8 +678,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	exec_cycles = rdtsc() - exec_cycles;
-	unsigned long allexec;
+	unsigned long allexec=exec_cycles;
+	#ifdef MPI_VERSION
 	MPI_Reduce(&exec_cycles, &allexec, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI::COMM_WORLD);
+	#endif
 	#ifndef SILENT
 	if (rank==0) std::cout<<"exec_time(sec)\t"<<double(allexec)/(np*clock_rate)<<std::endl;
 	#else

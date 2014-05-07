@@ -298,8 +298,10 @@ unsigned long update(MMSP::grid<dim, sparse<float> >& grid, int steps, int nthre
 	++iterations;
 	#endif
 
-	unsigned long total_update_time;
+	unsigned long total_update_time=timer;
+	#ifdef MPI_VERSION
 	MPI::COMM_WORLD.Allreduce(&timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+	#endif
 	return total_update_time/np; // average update time
 }
 

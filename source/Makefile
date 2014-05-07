@@ -31,16 +31,22 @@ core = $(incdir)/MMSP.utility.hpp \
 
 # the program
 graingrowth.out: main.cpp graingrowth.cpp tessellate.hpp $(core)
-	$(compiler) -DPHASEFIELD $(flags) $< -o $@ -lz -pthread
+	$(compiler) -DPHASEFIELD $(flags) $< -o graingrowth.out -lz -pthread
+
+mc: main.cpp graingrowth_MC.cpp tessellate.hpp $(core)
+	$(compiler) $(flags) $< -o graingrowth.out -lz -pthread
 
 parallel: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(pcompiler) -DPHASEFIELD $(flags) -include mpi.h $< -o parallel_GG.out -lz
 
-bgqmc: main.cpp graingrowth_MC.cpp tessellate.hpp $(core)
-	$(qcompiler) $(qflags) -DBGQ -DSILENT $< -o q_MC.out -lz
+parallelmc: main.cpp graingrowth_MC.cpp tessellate.hpp $(core)
+	$(pcompiler) $(flags) -include mpi.h $< -o parallel_MC.out -lz
 
 bgq: main.cpp graingrowth.cpp tessellate.hpp $(core)
 	$(qcompiler) $(qflags) -DBGQ -DSILENT -DPHASEFIELD $< -o q_GG.out -lz
+
+bgqmc: main.cpp graingrowth_MC.cpp tessellate.hpp $(core)
+	$(qcompiler) $(qflags) -DBGQ -DSILENT $< -o q_MC.out -lz
 
 wrongendian: wrongendian.cpp
 	$(compiler) $< -o $@.out -lz -pthread

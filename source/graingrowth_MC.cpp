@@ -215,9 +215,9 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	#ifdef MPI_VERSION
 	rank=MPI::COMM_WORLD.Get_rank();
 	np=MPI::COMM_WORLD.Get_size();
-	#endif
 
 	MPI::COMM_WORLD.Barrier();
+	#endif
 
 	unsigned long update_timer = 0;
 
@@ -269,7 +269,9 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 			for (int i=0; i!= nthreads ; i++)
 				pthread_join(p_threads[i], NULL);
 
+			#ifdef MPI_VERSION
 			MPI::COMM_WORLD.Barrier();
+			#endif
 
 			ghostswap(grid); // once looped over a "color", ghostswap.
 		}//loop over color
@@ -287,8 +289,10 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	delete [] mat_para ;
 	mat_para=NULL;
 
-	unsigned long total_update_time;
+	unsigned long total_update_time=update_timer;
+	#ifdef MPI_VERSION
 	MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+	#endif
 	//if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
 	return total_update_time/np; // average update time
 }
