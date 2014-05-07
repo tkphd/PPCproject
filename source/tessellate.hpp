@@ -279,7 +279,7 @@ void * exact_voronoi_threads_helper( void* s )
 				}
 			}
 		}
-		(*(ss->grid))(n) = reinterpret_cast<T>(min_identity);
+		(*(ss->grid))(n) = static_cast<T>(min_identity);
 	}
 
 	pthread_exit(0);
