@@ -407,7 +407,7 @@ The approach is similar to the ``reduced blocking I/O'' used in PHASTA \cite{Car
   \node[zblock,minimum height=1.5em] at ($(8,-15em)+(0,-2.625*7)$) { };
   \path[->,out=0,in=180] ($(2em,-8em)+(4,-3.5*7)$) edge ($(2em,-15em)+(6.375,-2.625*7)$);
 \end{tikzpicture}
-\captionof{figure}{Schematic of data movement in stock \texttt{MMSP::output()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}. In this example, each MPI rank writes to disk. The filesize is slightly larger than two GPFS blocks, a common situation when writing initial conditions. For massively parallel systems, such as AMOS, this scenario overtaxes the GPFS backend.\label{fig:stockio}}
+\captionof{figure}{Schematic of data movement in stock \texttt{MMSP::output()} function, implemented using explicit offsets and \texttt{MPI\_File\_iwrite\_at}. Colors have the same meaning as in Fig.~\ref{fig:file}. In this example, each MPI rank writes to disk. The filesize is slightly larger than two GPFS blocks, a common situation when writing initial conditions. For massively parallel systems, such as AMOS, this scenario overtaxes ROMIO and the GPFS backend.\label{fig:stockio}}
 \end{center}
 \vskip\baselineskip
 \end{minipage}
@@ -513,13 +513,13 @@ Monte Carlo meshes store one scalar value (the grain ID) at each
 AMOS  	& MPI 	& threads & Parallel	& Monte	& Phase\\
 Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
 ($N$)	& ($n$)	& ($p$)	& ($np$)	& result & result\\\hline
-32	& 32	& 64	& 2048	&\checkmark &\checkmark \\
+32	& 32	& 64	& 2048	&\checkmark &$\times$ \\
 32	& 64	& 32	& 2048	&\checkmark &\checkmark \\
-32	& 128	& 16	& 2048	&\checkmark &\checkmark \\
+32	& 128	& 16	& 2048	&\checkmark &$\times$ \\
 32	& 512	& 4	& 2048	&\checkmark &\checkmark \\
 32	& 2048	& 1	& 2048	&\checkmark &\checkmark \\\hline
 64	& 64	& 64	& 4096	&$\times$ &$\times$ \\
-64	& 128	& 32	& 4096	&\checkmark &\checkmark \\
+64	& 128	& 32	& 4096	&\checkmark &$\times$ \\
 64	& 256	& 16	& 4096	&\checkmark &\checkmark \\
 64	& 1024	& 4	& 4096	&\checkmark &\checkmark \\
 64	& 4096	& 1	& 4096	&\checkmark &\checkmark \\\hline
@@ -528,7 +528,7 @@ Nodes	& Ranks & per rank & Capacity	& Carlo	& Field\\
 128	& 1024	& 16	& 8192	&\checkmark &\checkmark \\
 128	& 2048	& 4	& 8192	&\checkmark &\checkmark \\
 128	& 8192	& 1	& 8192	&$\times$ &$\times$ \\\hline
-256	& 256	& 64	& 16384	&$\times$ &$\times$\\
+256	& 256	& 64	& 16384	&$\times$ &\checkmark \\
 256	& 512	& 32	& 16384	&$\times$ &\checkmark \\
 256	& 1024	& 16	& 16384	&\checkmark &\checkmark \\
 256	& 4096	& 4	& 16384	&\checkmark &\checkmark \\
@@ -542,12 +542,12 @@ node, while the phase-field mesh stores a set of order parameters (ranging in va
 
 The Poisson-Voronoi tessellation (PVT) has nearly identical behavior for both meshes:
 it either sets the scalar value, or sets to one the paramater corresponding to that scalar, at each mesh point.
-As evident in Figs.~\ref{fig:vorot}~and~\ref{fig:vorob}, aside from a couple missing values due to pthreading limitations, the results are indistinguishable.
+As evident in Fig.~\ref{fig:vorot}, aside from a couple missing values due to pthreading limitations, the results are indistinguishable.
 This suggests our implementations of the algorithm for both mesh types are correct, or at least consistent with each other.
 The graphs show a minimum in compute time between 4--16 pthreads, with a sharp increase for $32$.
 This is likely due to the overhead associated with spawning new pthreads, especially since increasing the number of threads must decrease the work available for each thread to perform.
 Globally, the more MPI ranks available, the faster the initialization, since there is no such overhead associated with adding MPI ranks.
-There is also a sharp maximum in write bandwidth
+\vskip2\baselineskip
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-init}
@@ -556,44 +556,49 @@ There is also a sharp maximum in write bandwidth
   \captionof{figure}{Initialization (PVT) time for (top) scalar-valued and (bottom) sparse vector-valued meshes.\label{fig:vorot}}
 \end{minipage}
 \end{center}
-between 4--16 threads, which is unexpected.
-The intialization files are roughly 20 MB, or 2.2 blocks on the GPFS;
-the fewer the threads, the more data transfer between the workers and the three aggregator ranks.
-This peak is almost certainly due to data compression during output, which we did not pthread, but apparently should have:
-\texttt{zlib} is an expensive algorithm.
-The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, and therefore the lower the write-performance.
+\newpage
+
+The intialized (or ``startup'') files are roughly 20 MB, or 2.2 blocks on the GPFS.
+Writing either mesh type used nearly the same bandwidth, Fig.~\ref{fig:vorob}.
+These bandwidth data (taken as the sum over all MPI ranks: aggregate bandwidth) also show a peak between 4--16 threads, which is unexpected:
+threads do not participate in file I/O.
+This peak is almost certainly due to data compression using \texttt{zlib} during output, which we did not pthread, but apparently should have.
+The higher the number of pthreads, the fewer MPI ranks available to compress the data before writing to disk, hence the reduced write-performance.
 The inclusion of \texttt{zlib} in the \texttt{output\_bgq()} function also noticably degraded bandwidth:
 the peak value was only 15~MB/s.
 
-Aside from specific interest due to our research projects, we had hoped to compare file I/O performance for the Monte Carlo and phase-field algorithms side-by-side.
-Monte Carlo domains, with scalar-valued data, does not grow in size as the simulation progresses.
+Monte Carlo domains, with scalar-valued data, do not grow in size as the simulation progresses.
 Phase-field domains do: 
-the model enforces diffuse interfaces, producing a peak in file size after a 
-few hundred iterations as the interfaces
+the model enforces diffuse interfaces, producing a peak in file size as the initially sharp interfaces spread into their equilibrium shapes.
+Once attained, the diffuse interfaces begin to 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-initBW}
 
   \includegraphics[width=\textwidth]{img/pr-initBW}
-  \captionof{figure}{Parallel I/O bandwidth writing PVT-initialized (top) scalar-valued and (bottom) sparse-vector-valued meshes.\label{fig:vorob}}
+  \captionof{figure}{Parallel I/O bandwidth writing PVT-initialized (top) scalar-valued and (bottom) sparse-vector-valued meshes; $\sim$20 MB each.\label{fig:vorob}}
 \end{minipage}
 \end{center}
-seek their equilibrium shapes.
-Considering Fig.~\ref{fig:compb}, the two bandwidths are very similar.
-Indeed, the file sizes are within 1~MB of one another;
-the expected peak filesize for a $512^3$ phase-field grid is $\sim$2.5~GB.
-Our 15-step cutoff was not enough to see a difference in bandwidth and, unfortunately, we were not able to collect larger files in the 30-minute timeframe provided for these simulations.
+move according to their curvature;
+as small, highly-curved grains are consumed, their order parameters are also eliminated, and the filesize shrinks back down some.
 
-The compute times (Fig.~\ref{fig:compt}) and
-
+The bandwidths presented in Fig.~\ref{fig:compb} show the effects of this filesize difference.
+The Monte Carlo checkpoint file I/O was rather similar to the startup file I/O;
+the main differences from Fig.~ref{fig:vorob} are missing values, since the paralell Monte Carlo algorithm imposes some restrictions on the number of pthreads allowed.
+While the trends for phase-field checkpoint files are similar, there is no ``peak:'' 
+bandwidth is a monotonically decreasing function of the number of pthreads.
+We also attribute this degradation in performance to data compression.
+It is interesting to note that the phase-field checkpoints, with order-of-magnitude greater sizes, had roughly $5\times$ higher bandwidth than the startup and Monte Carlo checkpoint files.
+\vskip2\baselineskip
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
   \includegraphics[width=\textwidth]{img/prMC-compBW}
 
   \includegraphics[width=\textwidth]{img/pr-compBW}
-  \captionof{figure}{Parallel I/O bandwidth writing the $15^{\mathrm{th}}$ (top) Monte Carlo step and (bottom) phase-field iteration.\label{fig:compb}}
+  \captionof{figure}{Parallel I/O bandwidth writing the $15^{\mathrm{th}}$ (top) Monte Carlo step and (bottom) phase-field iteration; $\sim$20 MB and 1.5 GB, respectively.\label{fig:compb}}
 \end{minipage}
 \end{center}
+\newpage
 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
@@ -605,30 +610,46 @@ The compute times (Fig.~\ref{fig:compt}) and
 \end{center}
 
 
+The compute performance (Fig.~\ref{fig:compt}) strongly reflects the overhead of pthread creation:
+up to $16$ pthreads per rank, performance is high, with low compute times across all node counts.
+Beyond that, compute time rises sharply for both Monte Carlo and phase-field simulations.
+This may be due to our approach to pthreading:
+new threads are created and destroyed for each iteration, rather than persisting throughout the computation process.
+Differences in the two plots arise from the slightly higher complexity of the phase-field algorithm.
 
+Total speedup of the parallel simulations, taken as the reciprocal of total execution time, follows the shape expected from Amdahl's Law in Fig.~\ref{fig:speed}.
+Generally, allocating more MPI ranks is better, and allocating more than $16$ pthreads per rank is a mistake.
+This reflects the benefit to compression before output of having more MPI ranks, and the detriment of allocating too many pthreads.
+Note that in each case, the PowerPC processors were saturated: $64$ threads of $64$ possible were allocated, even though only 
 \begin{center}
 \begin{minipage}{0.4\textwidth}\centering
-  \includegraphics[width=\textwidth]{img/prMC-exec}
+  \includegraphics[width=\textwidth]{img/prMC-speed}
 
-  \includegraphics[width=\textwidth]{img/pr-exec}
-  \captionof{figure}{Total execution time for (top) Monte Carlo and (bottom) phase-field simulations.}
+  \includegraphics[width=\textwidth]{img/pr-speed}
+  \captionof{figure}{Total speedup for (top) Monte Carlo and (bottom) phase-field simulations. Indicated pthread values are per MPI rank.\label{fig:speed}}
 \end{minipage}
 \end{center}
+$16$ physical cores exist.
+It is possible that resetting the run conditions (Table~\ref{tab:cond}) to use $16$ instead of $64$ threads per node would produce more satisfactory performance.
 
 
 \section{Conclusions}
-Note that our MPI-IO timer envelopes as much of \texttt{output\_bgq()} as possible, since our goal here was to analyze the real-world performance of the code.
+Our group set out to enable MPI-IO in MMSP and to improve our research code performance by implementing pthreads.
+We succeeded in both.
+While the MPI-IO bandwidth is low as-measured, our bandwidth timer enveloped as much of \texttt{output\_bgq()} as possible, since our goal here was to analyze the real-world performance of the code.
+Writing a 1.5~GB file really does take about 5 minutes, which is good to know:
+future simulations will write as few files as possible.
+
+Our pthreaded implementations of the Poisson-Voronoi tessellation, Potts Monte Carlo, and sparse phase-field models demonstrated very good performance.
+We believe the performance would have been even better if we ran under less-than-saturated conditions on AMOS ($<64$ threads-per-node), and we plan to test this belief in the near future.
+In addition, we discovered that data compression is a major drain on the system, and we plan to pthread that aspect of our \texttt{output\_bgq()} function to minimize the problem.
 
 \section{Contributions}
 \begin{itemize}
- \item Kun Huang\\
-	MC algorithm implementation and pthreading
- \item Trevor Keller\\
-	Voronoi algorithm selection and implementation; parallel PF selection and implementation; MPI-IO algorithm design and implementation
- \item Congrui Li\\
-	pthread PF and Voronoi
- \item Yixuan Tan\\
-	MC algorithm selection and implementation
+ \item \emph{Kun Huang} implemented the parallel MC algorithm, with pthreading, and ran the jobs on AMOS.
+ \item \emph{Trevor Keller} researched and implemented the MPI-IO algorithm, and provided guidance on using MMSP.
+ \item \emph{Congrui Li} reworked existing parallel Voronoi tessellation and phase-field functions to use pthreads.
+ \item \emph{Yixuan Tan} researched, selected, and implemented the parallel Potts Monte Carlo algorithm.
 \end{itemize}
 
 \label{LastPage}
