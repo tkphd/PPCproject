@@ -278,50 +278,40 @@ void* swap_block_kernel(void* x)
 			case Z_MEM_ERROR:
 				std::cerr << "Uncompress: out of memory.\n" << std::endl;
 				st->ofile->close();
-				delete [] raw;
-				delete [] buffer;
+				delete [] raw; raw=NULL;
+				if (buffer!=NULL) delete [] buffer; buffer=NULL;
 				exit(-1);
 				break;
 			case Z_BUF_ERROR:
 				std::cerr << "Uncompress: output buffer ("<<size_in_mem<<" B) wasn't large enough for data ("<<size_on_disk<<" B).\n" << std::endl;
 				st->ofile->close();
-				delete [] raw;
-				delete [] buffer;
+				delete [] raw; raw=NULL;
+				if (buffer!=NULL) delete [] buffer; buffer=NULL;
 				exit(-1);
 				break;
 		}
 		// Invert raw data
-		char* p = raw;
 		if (scalar_type) {
 			if (int_type) {
-				char* q=p;
+				char* q=raw;
 				while (q<raw+size_in_mem) {
-					/*
-					// Each scalar contains one value. Swap it.
-					int size=0;
-					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
-					memcpy(&size, reinterpret_cast<int*>(q), 1);
-					q+=sizeof(int);
-					swap_buffer<int>(reinterpret_cast<int*>(q), size);
-					q+=size*sizeof(int);
-					*/
 					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
 					q+=sizeof(int);
 				}
 			} else {
 				std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
-				delete [] raw;
-				delete [] buffer;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				if (buffer!=NULL) delete [] buffer; buffer=NULL;
 				exit(-1);
 			}
 		} else if (vector_type) {
 			std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
-			delete [] raw;
-			delete [] buffer;
+			if (raw!=NULL) delete [] raw; raw=NULL;
+			if (buffer!=NULL) delete [] buffer; buffer=NULL;
 			exit(-1);
 		} else if (sparse_type) {
 			if (float_type) {
-				char* q=p;
+				char* q=raw;
 				while (q<raw+size_in_mem) {
 					// Swap the number of floats in each sparse object
 					int nfloats=0;
@@ -339,17 +329,17 @@ void* swap_block_kernel(void* x)
 				}
 			} else {
 				std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
-				delete [] raw;
-				delete [] buffer;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				if (buffer!=NULL) delete [] buffer; buffer=NULL;
 				exit(-1);
 			}
 		} else {
 			std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
-			delete [] raw;
-			delete [] buffer;
+			if (raw!=NULL) delete [] raw; raw=NULL;
+			if (buffer!=NULL) delete [] buffer; buffer=NULL;
 			exit(-1);
 		}
-		delete [] buffer; buffer=NULL;
+		if (buffer!=NULL) delete [] buffer; buffer=NULL;
 		// Re-compress
 		size_on_disk=1.125*size_in_mem+12;
 		buffer = new Bytef[size_on_disk];
@@ -361,56 +351,81 @@ void* swap_block_kernel(void* x)
 			case Z_MEM_ERROR:
 				std::cerr << "Compress: out of memory.\n" << std::endl;
 				st->ofile->close();
-				delete [] buffer;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				delete [] buffer; buffer=NULL;
 				exit(-1);
 				break;
 			case Z_BUF_ERROR:
 				std::cerr << "Uncompress: output buffer ("<<size_on_disk<<" B) wasn't large enough for data ("<<size_in_mem<<" B).\n" << std::endl;
 				st->ofile->close();
-				delete [] buffer;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				delete [] buffer; buffer=NULL;
 				exit(-1);
 				break;
 		}
-		delete [] raw; raw=NULL;
+		if (raw!=NULL) delete [] raw; raw=NULL;
 	}	else {
-		if (sparse_type) {
+		char* raw=reinterpret_cast<char*>(buffer);
+		if (scalar_type) {
+			if (int_type) {
+				char* q=raw;
+				while (q<raw+size_in_mem) {
+					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
+					q+=sizeof(int);
+				}
+			} else {
+				std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
+				if (buffer!=NULL) delete [] buffer; buffer=NULL;
+				exit(-1);
+			}
+		} else if (vector_type) {
+			std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
+			if (buffer!=NULL) delete [] buffer; buffer=NULL;
+			exit(-1);
+		} else	if (sparse_type) {
 			if (float_type) {
-				for (char* q=reinterpret_cast<char*>(buffer); q<reinterpret_cast<char*>(buffer)+size_in_mem; q+=sizeof(int)) {
+				char* q=raw;
+				while (q<raw+size_in_mem) {
 					// Swap the number of floats in each sparse object
 					int nfloats=0;
 					swap_buffer<int>(reinterpret_cast<int*>(q), 1);
 					memcpy(&nfloats, reinterpret_cast<int*>(q), 1);
 					q+=sizeof(int);
 					for (int j=0; j<nfloats; j++) {
+						// MMSP::sparse<T>::to_buffer() copies n * item<T>;
+						// each item contains one int and one T
+						swap_buffer<int>(reinterpret_cast<int*>(q), 1);
+						q+=sizeof(int);
 						swap_buffer<float>(reinterpret_cast<float*>(q), 1);
 						q+=sizeof(float);
 					}
 				}
-				// Compress
-				size_on_disk=1.25*size_in_mem+12;
-				Bytef* raw=buffer;
-				buffer = new Bytef[size_on_disk];
-				int status = compress2(buffer, &size_on_disk, raw, size_in_mem, 9);
-				switch(status) {
-					case Z_OK:
-						break;
-					case Z_MEM_ERROR:
-						std::cerr << "Compress: out of memory.\n" << std::endl;
-						delete [] buffer;
-						exit(-1);
-						break;
-					case Z_BUF_ERROR:
-						std::cerr << "Compress: output buffer wasn't large enough.\n" << std::endl;
-						delete [] buffer;
-						exit(-1);
-						break;
-				}
-				delete [] raw; raw=NULL;
 			}
 		} else {
 			std::cerr<<"ERROR: Grid type ("<<type<<") is not implemented.\n"<<std::endl;
 			exit(-1);
 		}
+		// Compress
+		size_on_disk=1.25*size_in_mem+12;
+		buffer = new Bytef[size_on_disk];
+		int status = compress2(buffer, &size_on_disk, reinterpret_cast<const Bytef*>(raw), size_in_mem, 9);
+		switch(status) {
+			case Z_OK:
+				break;
+			case Z_MEM_ERROR:
+				std::cerr << "Compress: out of memory.\n" << std::endl;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				delete [] buffer; buffer=NULL;
+				exit(-1);
+				break;
+			case Z_BUF_ERROR:
+				std::cerr << "Compress: output buffer wasn't large enough.\n" << std::endl;
+				if (raw!=NULL) delete [] raw; raw=NULL;
+				delete [] buffer; buffer=NULL;
+				exit(-1);
+				break;
+		}
+		if (raw!=NULL) delete [] raw; raw=NULL;
 	}
 
 	pthread_mutex_lock(&write_lock);
@@ -427,7 +442,7 @@ void* swap_block_kernel(void* x)
 	st->ofile->write(reinterpret_cast<const char*>(buffer), size_on_disk);
 	pthread_mutex_unlock(&write_lock);
 
-	delete [] buffer;
+	if (buffer!=NULL) delete [] buffer; buffer=NULL;
 
 	pthread_exit((void*)0);
 	return NULL;

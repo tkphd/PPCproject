@@ -302,7 +302,7 @@ int main(int argc, char* argv[]) {
 			unsigned long iocycles = rdtsc();
 			double init_bw = 0.0;
 			#ifdef BGQ
-			init_bw = MMSP::output_bgq(*grid, filename);
+			init_bw = MMSP::output_bgq(*grid, filename, nthreads);
 			init_bw *= clock_rate;
 			#else
 			MMSP::output(*grid, filename);
@@ -351,7 +351,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw = MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename, nthreads);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
@@ -392,7 +392,7 @@ int main(int argc, char* argv[]) {
 			unsigned long iocycles = rdtsc();
 			//#if defined(BGQ) && defined(PHASEFIELD)
 			#ifdef BGQ
-			init_bw = MMSP::output_bgq(*grid, filename);
+			init_bw = MMSP::output_bgq(*grid, filename, nthreads);
 			init_bw *= clock_rate;
 			#else
 			MMSP::output(*grid, filename);
@@ -444,7 +444,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				comp_bw = MMSP::output_bgq(*grid, filename);
+				comp_bw = MMSP::output_bgq(*grid, filename, nthreads);
 				#else
 				MMSP::output(*grid, filename);
 				#endif
@@ -635,7 +635,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(grid, filename);
+				MMSP::output_bgq(grid, filename, nthreads);
 				#else
 				MMSP::output(grid, filename);
 				#endif
@@ -668,7 +668,7 @@ int main(int argc, char* argv[]) {
 				#endif
 				//#if defined(BGQ) && defined(PHASEFIELD)
 				#ifdef BGQ
-				MMSP::output_bgq(grid, filename);
+				MMSP::output_bgq(grid, filename, nthreads);
 				#else
 				MMSP::output(grid, filename);
 				#endif

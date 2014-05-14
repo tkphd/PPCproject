@@ -13,7 +13,7 @@ namespace MMSP
 {
 
 template <int dim,typename T>
-double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
+double output_bgq(MMSP::grid<dim,T>& GRID, char* filename, int nthreads=1)
 {
 	/* MPI-IO to the filesystem with writes aligned to blocks */
 	MPI::COMM_WORLD.Barrier();
@@ -44,7 +44,7 @@ double output_bgq(const MMSP::grid<dim,T>& GRID, char* filename)
 	MPI_Status* recvstatuses = NULL;
 
 	// get grid data to write
-	const unsigned long size=write_buffer(GRID, databuffer);
+	const unsigned long size=write_buffer(GRID, databuffer, nthreads);
 	assert(databuffer!=NULL);
 	// Generate MMSP header from rank 0
 	unsigned long header_offset=0;
@@ -518,6 +518,7 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	MPI_Comm_free(&subcomm);
 	return 0.0;
 }
+
 
 } // namespace MMSP
 #endif
