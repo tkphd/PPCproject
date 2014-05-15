@@ -44,7 +44,7 @@ double output_bgq(MMSP::grid<dim,T>& GRID, char* filename, int nthreads=1)
 	MPI_Status* recvstatuses = NULL;
 
 	// get grid data to write
-	const unsigned long size=write_buffer(GRID, databuffer, nthreads);
+	const unsigned long size=write_buffer_bgq(GRID, databuffer, nthreads);
 	assert(databuffer!=NULL);
 	// Generate MMSP header from rank 0
 	unsigned long header_offset=0;
@@ -270,7 +270,6 @@ double output_bgq(MMSP::grid<dim,T>& GRID, char* filename, int nthreads=1)
 		assert(w<nwriters);
 		if (w==nwriters-1)
 			assert(filesize-aoffsets[w]==ws);
-		//writecycles = rdtsc();
 		mpi_err = MPI_File_iwrite_at(output, aoffsets[w], filebuffer, ws, MPI_CHAR, &request);
 		MPI_Wait(&request, &status);
 		if (mpi_err != MPI_SUCCESS) {
@@ -279,7 +278,6 @@ double output_bgq(MMSP::grid<dim,T>& GRID, char* filename, int nthreads=1)
 			MPI_Error_string(mpi_err, error_string, &length_of_error_string);
 			fprintf(stderr, "%3d: %s\n", rank, error_string);
 		}
-		//writecycles = rdtsc() - writecycles;
 	} else {
 		ws = 0; // not a writer
 	}
@@ -317,10 +315,13 @@ double output_bgq(MMSP::grid<dim,T>& GRID, char* filename, int nthreads=1)
 template <int dim,typename T>
 double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfiles=1)
 {
+	// WARNING: THIS FUNCTION HAS NOT BEEN TESTED! IT *WILL* CORRUPT YOUR DATA!
+
 	/* MPI-IO split across multiple files */
 	// Function will write a header file named <filename>, plus
 	// (nfiles-1) files named <filename%%.dat>.rXXX
 	// Assumes that block-alignment DOES NOT MATTER for N>1.
+
 
 	MPI::COMM_WORLD.Barrier();
 	int rank = MPI::COMM_WORLD.Get_rank();
@@ -429,7 +430,7 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	MPI::COMM_WORLD.Barrier();
 
 	// get grid data to write
-	unsigned long size=write_buffer(GRID, databuffer);
+	unsigned long size=write_buffer_bgq(GRID, databuffer);
 	assert(databuffer!=NULL);
 	if (rank==0) {
 		// Rank 0 holds the global header -- needs to be the first thing written!
@@ -495,15 +496,6 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	// Make sure everything's written before closing the file.
 	MPI_Offset actual_size;
 	MPI_File_get_size(output,&actual_size);
-	/*
-	#ifdef DEBUG
-	if (rank==0) {
-		std::cout<<subfilename<<" should be "<<offsets[subnp-1]+datasizes[subnp-1]<<" B;";
-		std::cout<<" wrote "<<actual_size<<" B to disk."<<std::endl;
-		assert(offsets[subnp-1]+datasizes[subnp-1] == static_cast<unsigned long>(actual_size));
-	}
-	#endif
-	*/
 	MPI::COMM_WORLD.Barrier();
 	MPI_File_close(&output);
 

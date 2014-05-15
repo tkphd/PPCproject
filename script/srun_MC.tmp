@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# srun command for CSCI-6360 group project.
+# USAGE: /full/path/to/./q_MC.out [--help]
+#                                 [--init dimension [outfile]]
+#                                 [--nonstop dimension outfile steps [increment]]
+#                                 [infile [outfile] steps [increment]]
+#
+#SBATCH -D /gpfs/u/scratch/GGST/GGSTkllt/project/
+#SBATCH --partition PARTITION
+#SBATCH -t 120
+#SBATCH -N NNODE
+#SBATCH -n NRANK
+#SBATCH --overcommit
+#SBATCH -o /gpfs/u/barn/GGST/GGSTkllt/project/prMC16_NNODE_NRANK.log
+
+srun --runjob-opts="--mapping TEDCBA" /gpfs/u/barn/GGST/GGSTkllt/project/source/./q_MC.out --nonstop 3 voronmc.00.dat 15 15 NTHREAD
