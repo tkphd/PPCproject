@@ -51,7 +51,7 @@ bgqmc: main.cpp graingrowth_MC.cpp tessellate.hpp $(core)
 wrongendian: wrongendian.cpp
 	$(compiler) $< -o $@.out -lz -pthread
 
-mmsp2vtk: mmsp2vtk.cpp $(core)
+mmsp2vtk: TKmmsp2vti.cpp $(core)
 	$(compiler) $(flags) $< -o $@ -lz
 
 clean:
