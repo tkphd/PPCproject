@@ -18,8 +18,6 @@
 #include"tessellate.hpp"
 #include"output.cpp"
 
-#define MPI_VERSION /*-----------commets out when on BGQ------------*/
-
 
 void print_progress(const int step, const int steps, const int iterations);
 
@@ -59,13 +57,15 @@ unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 		MPI::COMM_WORLD.Barrier();
 		#endif
 	} else if (dim == 3) {
-		const int edge = 8;
+		const int edge_x = 128;
+    const int edge_y = 128;
+    const int edge_z = 8;
 		int number_of_fields(seeds);
-		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge*edge)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
+		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge_x*edge_y*edge_z)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge, 0, edge);
+		grid = new MMSP::grid<dim,int>(0, 0, edge_x, 0, edge_y, 0, edge_z);
 
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
@@ -154,13 +154,16 @@ template <int dim> void* flip_index_helper( void* s )
 	for (int h=0; h<num_of_grids; h++) {
 	  // choose a random cell to flip
     int cell_numbering_in_thread = rand()%(ss->num_of_cells_in_thread); //choose a cell to flip, from 0 to num_of_cells_in_thread-1
+    int rank=MPI::COMM_WORLD.Get_rank(); 
+//    if(rank==0)
+//    std::cout<<"cell_numbering_in_thread is "<<cell_numbering_in_thread<<std::endl;
     if(dim==2){
       cell_coords_selected[1]=((ss->cell_coord)[1]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[1];//1-indexed
-      cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[0]);
+      cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[1]);
     }else if(dim==3){
       cell_coords_selected[2]=((ss->cell_coord)[2]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[2];//1-indexed
-      cell_coords_selected[1]=(ss->cell_coord)[1]+(((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2])%(ss->lattice_cells_each_dimension)[1];
-      cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[1]+((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2]))/(ss->lattice_cells_each_dimension)[1];
+      cell_coords_selected[1]=(  (ss->cell_coord)[1]+ ((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2]  )%(ss->lattice_cells_each_dimension)[1];
+      cell_coords_selected[0]=(ss->cell_coord)[0]+ ( (ss->cell_coord)[1] + ((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2] ) /(ss->lattice_cells_each_dimension)[1];
     }
  
     for(int i=0; i<dim; i++){
@@ -169,7 +172,7 @@ template <int dim> void* flip_index_helper( void* s )
 
 
 /*    #ifdef MPI_VERSION
-      int rank=MPI::COMM_WORLD.Get_rank(); 
+
       if(rank==0 && dim==3)
 	std::cout<<"coordinates are (before consider boundary)"<<x[0]<<"  "<<x[1]<<"  "<<x[2]<<std::endl;
      #endif
@@ -177,34 +180,34 @@ template <int dim> void* flip_index_helper( void* s )
 
     if(dim==2){
       switch(ss->sublattice){
-        case 1:break;// 0,0
-        case 2:x[1]++; break; //0,1
-        case 3:x[0]++; break; //1,0
-        case 4:x[0]++; x[1]++; break; //1,1
+        case 0:break;// 0,0
+        case 1:x[1]++; break; //0,1
+        case 2:x[0]++; break; //1,0
+        case 3:x[0]++; x[1]++; break; //1,1
       }
     }
     if(dim==3){
       switch(ss->sublattice){
-        case 1:break;// 0,0,0
-        case 2:x[2]++; break; //0,0,1
-        case 3:x[1]++; break; //0,1,0
-        case 4:x[2]++; x[1]++; break; //0,1,1
-        case 5:x[0]++; break; //1,0,0
-        case 6:x[2]++; x[0]++; break; //1,0,1
-        case 7:x[1]++; x[0]++; break; //1,1,0
-        case 8:x[2]++; x[1]++; x[0]++; //1,1,1
+        case 0:break;// 0,0,0
+        case 1:x[2]++; break; //0,0,1
+        case 2:x[1]++; break; //0,1,0
+        case 3:x[2]++; x[1]++; break; //0,1,1
+        case 4:x[0]++; break; //1,0,0
+        case 5:x[2]++; x[0]++; break; //1,0,1
+        case 6:x[1]++; x[0]++; break; //1,1,0
+        case 7:x[2]++; x[1]++; x[0]++; //1,1,1
       }
     }
 
 
-      //      if(dim==3 && rank==0) std::cout<<"cell_coord is "<<(ss->cell_coord)[0]<<"  "<<(ss->cell_coord)[1]<<"  "<<(ss->cell_coord)[2]<<"\n";
+      // if(dim==3 && rank==0) std::cout<<"cell_coord is "<<(ss->cell_coord)[0]<<"  "<<(ss->cell_coord)[1]<<"  "<<(ss->cell_coord)[2]<<"\n";
       // if(dim==3 && rank==0) std::cout<<"cell_coords_selected is "<<cell_coords_selected[0]<<"  "<<cell_coords_selected[1]<<"  "<<cell_coords_selected[2]<<"\n";
 /*      if(dim==3 && rank==0){
       std::cout<<"sublattice is "<<ss->sublattice<<"\n";
       std::cout<<"cell_coords_selected is "<<cell_coords_selected[0]<<"  "<<cell_coords_selected[1]<<"  "<<cell_coords_selected[2]<<"\n";  
       std::cout<<"coordinates are "<<x[0]<<"  "<<x[1]<<"  "<<x[2]<<std::endl;
-      }*/
-
+      }
+*/
 
   
     bool site_out_of_domain = false;
@@ -219,37 +222,75 @@ template <int dim> void* flip_index_helper( void* s )
 		int spin1 = (*(ss->grid))(x);
 
 		// determine neighboring spins
-		vector<int> r(x);
+    vector<int> r(dim,0);
 		sparse<bool> neighbors;
-		for (int i=-1; i<=1; i++) {
+
+    if(dim==2){
+		for (int i=-1; i<=1; i++) 
 			for (int j=-1; j<=1; j++) {
 				r[0] = x[0] + i;
 				r[1] = x[1] + j;
 				int spin = (*(ss->grid))(r);
 				set(neighbors,spin) = true;
 			}
+    }
+    else if(dim==3){
+		for (int i=-1; i<=1; i++)
+			for (int j=-1; j<=1; j++)
+			  for (int k=-1; k<=1; k++) {
+				  r[0] = x[0] + i;
+				  r[1] = x[1] + j;
+				  r[2] = x[2] + k;
+				  int spin = (*(ss->grid))(r);
+				  set(neighbors,spin) = true;
+			  }
 		}
 
+
+    //check if inside a grain
+    int number_of_same_neighours = 0;
+    for(int j=0; j<length(neighbors)-1; j++){
+		  if(index(neighbors,j)!=index(neighbors,j+1)) break; //not inside a grain, break from for int j
+      number_of_same_neighours++;
+    }
+    if(number_of_same_neighours==length(neighbors)-1){//inside a grain
+      continue;//continue for 
+    }
 		// choose a random neighbor spin
 		int spin2 = index(neighbors,rand()%length(neighbors));
 
-		if (spin1!=spin2) {
+
+
+		if (spin1!=spin2){
 			// compute energy change
 			double dE = -1.0;
-			for (int i=-1; i<=1; i++) {
-				for (int j=-1; j<=1; j++) {
-					r[0] = x[0] + i;
-					r[1] = x[1] + j;
-					int spin = (*(ss->grid))(r);
-					dE += (spin!=spin2)-(spin!=spin1);
+      if(dim==2){
+			for (int i=-1; i<=1; i++) 
+				for (int j=-1; j<=1; j++){
+					  r[0] = x[0] + i;
+					  r[1] = x[1] + j;
+					  int spin = (*(ss->grid))(r);
+					  dE += (spin!=spin2)-(spin!=spin1);
 				}
-			}
+      }
+      if(dim==3){
+			for (int i=-1; i<=1; i++) 
+				for (int j=-1; j<=1; j++) 
+    	    for (int k=-1; k<=1; k++) {
+					  r[0] = x[0] + i;
+					  r[1] = x[1] + j;
+					  r[2] = x[2] + k;
+					  int spin = (*(ss->grid))(r);
+					  dE += (spin!=spin2)-(spin!=spin1);
+				  }
+      }
 
 			// attempt a spin flip
 			double r = double(rand())/double(RAND_MAX);
 			if (dE<=0.0) (*(ss->grid))(x) = spin2;
 			else if (r<exp(-dE/kT)) (*(ss->grid))(x) = spin2;
 		}
+
 	}
 	pthread_exit(0);
 	return NULL;
@@ -323,6 +364,7 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
   if(rank==0)
     std::cout<<x0(grid, 0)<<","<<x0(grid,1)<<","<<x0(grid, 2)<<" ->  "<<x1(grid, 0)<<","<<x1(grid,1)<<","<<x1(grid, 2)<<std::endl;
 
+
   for (int i=0; i<nthreads; i++) {
     mat_para[i].grid = &grid;
     if(i==(nthreads-1)) mat_para[i].num_of_cells_in_thread = number_of_lattice_cells - num_of_cells_in_thread*(nthreads-1);
@@ -331,32 +373,31 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     for(int k=0; k<dim; k++) mat_para[i].lattice_cells_each_dimension[k]=lattice_cells_each_dimension[k];
   }
 
-
   int cell_coord[dim];//record the start coordinates of each pthread domain.
 
 
 	for (int step=0; step<steps; step++){
 		unsigned long start = rdtsc();
     int num_of_sublattices = 8;
-		for (int sublattice=0; sublattice!= num_of_sublattices; sublattice++) {
+		for (int sublattice=0; sublattice < num_of_sublattices; sublattice++) {
 			for (int i=0; i!= nthreads ; i++) {
         int cell_numbering = num_of_cells_in_thread*i; //0-indexed, celling_numbering is the start cell numbering
-        if(rank==0) std::cout<<"cell_numbering is "<<cell_numbering<<"\n";
+//        if(rank==0) std::cout<<"cell_numbering is "<<cell_numbering<<"\n";
         if(dim==2){
           cell_coord[1]=cell_numbering%lattice_cells_each_dimension[1];//0-indexed
           cell_coord[0]=(cell_numbering/lattice_cells_each_dimension[1]);
-	  if(cell_coord[0]>=lattice_cells_each_dimension[0]){
-	    std::cerr<<"the cell coordinates is wrong!"<<std::endl;
-	    exit(1);
-	  }
+	        if(cell_coord[0]>=lattice_cells_each_dimension[0]){
+	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
+	          exit(1);
+	        }
         }else if(dim==3){
           cell_coord[2]=cell_numbering%lattice_cells_each_dimension[2];//0-indexed
           cell_coord[1]=(cell_numbering/lattice_cells_each_dimension[2])%lattice_cells_each_dimension[1];
           cell_coord[0]=(cell_numbering/lattice_cells_each_dimension[2])/lattice_cells_each_dimension[1];
-	  if(cell_coord[0]>=lattice_cells_each_dimension[0]){
-	    std::cerr<<"the cell coordinates is wrong!"<<std::endl;
-	    exit(1);
-	  }
+	        if(cell_coord[0]>=lattice_cells_each_dimension[0]){
+	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
+	          exit(1);
+	        }
         }
 	// if(dim==3 && rank==0) std::cout<<"cell_coord is "<<cell_coord[0]<<"  "<<cell_coord[1]<<"  "<<cell_coord[2]<<"\n";
 				mat_para[i].sublattice=sublattice;
