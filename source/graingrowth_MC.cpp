@@ -17,7 +17,8 @@
 #include"MMSP.hpp"
 #include"tessellate.hpp"
 #include"output.cpp"
-
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 void print_progress(const int step, const int steps, const int iterations);
 
@@ -57,9 +58,9 @@ unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 		MPI::COMM_WORLD.Barrier();
 		#endif
 	} else if (dim == 3) {
-		const int edge_x = 128;
-    const int edge_y = 128;
-    const int edge_z = 8;
+		const int edge_x = 48;
+    const int edge_y = 48;
+    const int edge_z = 48;
 		int number_of_fields(seeds);
 		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge_x*edge_y*edge_z)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
 		#ifdef MPI_VERSION
@@ -133,28 +134,79 @@ template <int dim> struct flip_index {
 	int sublattice;
   int cell_coord[dim];
   int lattice_cells_each_dimension[dim];
+  double* temperature_along_x; 
 };
+
+void ReadTemperature(double* temperature_along_x, int size){
+  std::ifstream ifs("plotdata_step_89.txt", std::ios::in);
+  std::vector<std::string> tokens;
+  std::vector<int> numbers_in_this_row;
+  std::string tmp_str;
+  std::vector<std::pair<double, double> > coords_and_temperatures;
+  getline(ifs,tmp_str);//discard the first line;
+  while(getline(ifs,tmp_str)){//start from the second line
+    tokens.clear();
+    boost::algorithm::split(tokens, tmp_str, boost::algorithm::is_space()); 
+    double component1 = atof(tokens[0].c_str())*(size-1);
+    double component2 = atof(tokens[1].c_str());
+    coords_and_temperatures.push_back(std::make_pair(component1, component2));
+  }
+  ifs.close();
+/*
+  for(unsigned int i=0; i<coords_and_temperatures.size(); i++){
+    std::cout<<coords_and_temperatures[i].first<<std::endl;
+  }
+*/
+  int loop_temperatures_count=0;
+  int i_last_step=0;
+  unsigned int i=0;
+  while(loop_temperatures_count<size){
+    i=i_last_step;
+//    std::cout<<"loop_temperatures_count is "<<loop_temperatures_count<<std::endl;
+    while(i<coords_and_temperatures.size()){
+ //     std::cout<<(1.0*loop_temperatures_count)<<"  "<<coords_and_temperatures[i+1].first<<std::endl;
+      if(i!=coords_and_temperatures.size()-1 && (1.0*loop_temperatures_count)>coords_and_temperatures[i].first && coords_and_temperatures[i+1].first>(1.0*loop_temperatures_count)){
+        temperature_along_x[loop_temperatures_count]=coords_and_temperatures[i].second+(coords_and_temperatures[i+1].second-coords_and_temperatures[i].second)/(coords_and_temperatures[i+1].first-coords_and_temperatures[i].first)*((1.0*loop_temperatures_count)-coords_and_temperatures[i].first);
+        i_last_step = i;
+        i++;
+        break;
+      }else if((1.0*loop_temperatures_count)==coords_and_temperatures[i].first){
+        temperature_along_x[loop_temperatures_count]=coords_and_temperatures[i].second;
+        i_last_step = i;
+        i++;
+        break;
+      }
+      i++;
+    }// while i
+    loop_temperatures_count++;
+  }
+/*
+  std::cout<<(*temperature_along_x).size()<<std::endl;
+  for(unsigned int i=0; i<(*temperature_along_x).size(); i++){
+    std::cout<<(*temperature_along_x)[i]<<std::endl;
+  }*/
+}
 
 
 template <int dim> void* flip_index_helper( void* s )
 {
   srand(time(NULL)); /* seed random number generator */
 	flip_index<dim>* ss = static_cast<flip_index<dim>*>(s);
-
+  double kT=0.0;
 	vector<int> x (dim,0);
-	const double kT = 0.50;
   int first_cell_start_coordinates[dim];
   for(int k=0; k<dim; k++) first_cell_start_coordinates[k] = x0(*(ss->grid), k);
   for(int i=0; i<dim; i++){
     if(x0(*(ss->grid), i)%2!=0) first_cell_start_coordinates[i]--;
   }
 
+  
 	int num_of_grids = (ss->num_of_cells_in_thread)*pow(2,dim);
   int cell_coords_selected[dim];
 	for (int h=0; h<num_of_grids; h++) {
 	  // choose a random cell to flip
     int cell_numbering_in_thread = rand()%(ss->num_of_cells_in_thread); //choose a cell to flip, from 0 to num_of_cells_in_thread-1
-    int rank=MPI::COMM_WORLD.Get_rank(); 
+//    int rank=MPI::COMM_WORLD.Get_rank(); 
 //    if(rank==0)
 //    std::cout<<"cell_numbering_in_thread is "<<cell_numbering_in_thread<<std::endl;
     if(dim==2){
@@ -287,6 +339,7 @@ template <int dim> void* flip_index_helper( void* s )
 
 			// attempt a spin flip
 			double r = double(rand())/double(RAND_MAX);
+      kT = 1.3806488e-23*((ss->temperature_along_x))[x[0]];
 			if (dE<=0.0) (*(ss->grid))(x) = spin2;
 			else if (r<exp(-dE/kT)) (*(ss->grid))(x) = spin2;
 		}
@@ -324,7 +377,7 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	if (rank==0) print_progress(0, steps, iterations);
 	#endif
 
-
+ 
 /*-----------------------------------------------*/
 /*---------------generate cells------------------*/
 /*-----------------------------------------------*/
@@ -364,6 +417,20 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
   if(rank==0)
     std::cout<<x0(grid, 0)<<","<<x0(grid,1)<<","<<x0(grid, 2)<<" ->  "<<x1(grid, 0)<<","<<x1(grid,1)<<","<<x1(grid, 2)<<std::endl;
 
+  int cell_coord[dim];//record the start coordinates of each pthread domain.
+  
+  int size=(g1(grid, 0)-g0(grid, 0)+1);
+  double *temperature_along_x = new double[size];
+  if(rank==0){
+    ReadTemperature(temperature_along_x, size);
+  /*
+    for(int i=0; i<size; i++){
+      std::cout<<temperature_along_x[i]<<std::endl;
+    }*/
+  }
+
+	MPI::COMM_WORLD.Barrier();
+  MPI::COMM_WORLD.Bcast(temperature_along_x, size, MPI_DOUBLE, 0);
 
   for (int i=0; i<nthreads; i++) {
     mat_para[i].grid = &grid;
@@ -371,10 +438,8 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     else mat_para[i].num_of_cells_in_thread = num_of_cells_in_thread;
     if(rank==0) std::cout<<"num_of_cells_in_thread is "<<mat_para[i].num_of_cells_in_thread<<" in thread "<<i<<"\n";
     for(int k=0; k<dim; k++) mat_para[i].lattice_cells_each_dimension[k]=lattice_cells_each_dimension[k];
+    mat_para[i].temperature_along_x = temperature_along_x;
   }
-
-  int cell_coord[dim];//record the start coordinates of each pthread domain.
-
 
 	for (int step=0; step<steps; step++){
 		unsigned long start = rdtsc();
@@ -413,7 +478,7 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 			MPI::COMM_WORLD.Barrier();
 			#endif
 
-			ghostswap(grid); // once looped over a "color", ghostswap.
+			ghostswap(grid, sublattice); // once looped over a "color", ghostswap.
 		}//loop over color
 		#ifndef SILENT
 		if (rank==0) print_progress(step+1, steps, iterations);
@@ -424,10 +489,13 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	++iterations;
 	#endif
 
+	delete [] temperature_along_x ;
+	temperature_along_x=NULL;
 	delete [] p_threads ;
 	p_threads=NULL;
 	delete [] mat_para ;
 	mat_para=NULL;
+
 
 	unsigned long total_update_time=update_timer;
 	#ifdef MPI_VERSION
