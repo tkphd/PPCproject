@@ -37,7 +37,7 @@ unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 
 	unsigned long timer=0;
 	if (dim == 2) {
-		const int edge = 1024;
+		const int edge = 256;
 		int number_of_fields(seeds);
 		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge)/(M_PI*10.*10.)); // average grain is a disk of radius 10
 		#ifdef MPI_VERSION
@@ -132,6 +132,7 @@ template <int dim> struct flip_index {
 	MMSP::grid<dim, int>* grid;
   int num_of_cells_in_thread;
 	int sublattice;
+  int num_of_points_to_flip;
   int cell_coord[dim];
   int lattice_cells_each_dimension[dim];
   double* temperature_along_x; 
@@ -199,11 +200,9 @@ template <int dim> void* flip_index_helper( void* s )
   for(int i=0; i<dim; i++){
     if(x0(*(ss->grid), i)%2!=0) first_cell_start_coordinates[i]--;
   }
-
   
-	int num_of_grids = (ss->num_of_cells_in_thread)*pow(2,dim);
   int cell_coords_selected[dim];
-	for (int h=0; h<num_of_grids; h++) {
+	for (int h=0; h<ss->num_of_points_to_flip; h++) {
 	  // choose a random cell to flip
     int cell_numbering_in_thread = rand()%(ss->num_of_cells_in_thread); //choose a cell to flip, from 0 to num_of_cells_in_thread-1
 //    int rank=MPI::COMM_WORLD.Get_rank(); 
@@ -268,9 +267,10 @@ template <int dim> void* flip_index_helper( void* s )
         site_out_of_domain = true;
         break;//break from the for int i loop
       }
-    if(site_out_of_domain == true)
+    if(site_out_of_domain == true){
+      h--;
       continue; //continue the int h loop
-
+    }
 		int spin1 = (*(ss->grid))(x);
 
 		// determine neighboring spins
@@ -349,6 +349,17 @@ template <int dim> void* flip_index_helper( void* s )
 	return NULL;
 }
 
+template <int dim> bool OutsideDomainCheck(MMSP::grid<dim, int>& grid, vector<int>* x){
+  bool outside_domain=false;
+  for(int i=0; i<dim; i++){
+    if((*x)[i]<x0(grid, i) || (*x)[i]>x1(grid, i)){
+      outside_domain=true;
+      break;
+    }
+  }
+  return outside_domain;
+}
+
 template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, int nthreads)
 {
 	#if (!defined MPI_VERSION) && ((defined CCNI) || (defined BGQ))
@@ -407,43 +418,125 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     exit(0);
   }
 
-
-  if(rank==0)
-  std::cout<<"number_of_lattice_cells is "<<number_of_lattice_cells<<"\n";
-
-  if(rank==0)
-  std::cout<<"nthreads is "<<nthreads<<"\n";
-
-  if(rank==0)
-    std::cout<<x0(grid, 0)<<","<<x0(grid,1)<<","<<x0(grid, 2)<<" ->  "<<x1(grid, 0)<<","<<x1(grid,1)<<","<<x1(grid, 2)<<std::endl;
-
   int cell_coord[dim];//record the start coordinates of each pthread domain.
   
   int size=(g1(grid, 0)-g0(grid, 0)+1);
   double *temperature_along_x = new double[size];
   if(rank==0){
     ReadTemperature(temperature_along_x, size);
-  /*
-    for(int i=0; i<size; i++){
-      std::cout<<temperature_along_x[i]<<std::endl;
-    }*/
   }
 
 	MPI::COMM_WORLD.Barrier();
   MPI::COMM_WORLD.Bcast(temperature_along_x, size, MPI_DOUBLE, 0);
 
+	vector<int> x (dim,0);
+	vector<int> x_prim (dim,0);
+  
+  int **num_of_grids_to_flip = new int*[nthreads];
+  for(int i=0; i<nthreads; i++){
+    num_of_grids_to_flip[i] = new int[( static_cast<int>(pow(2,dim)) )];
+    for(int j=0; j<pow(2,dim); j++){
+      num_of_grids_to_flip[i][j]=0;
+    }
+  }
+  int coordinates_of_cell[dim];
+  int initial_coordinates[dim];
+
+  for(int k=0; k<dim; k++) 
+    initial_coordinates[k] = x0(grid, k);
+  for(int i=0; i<dim; i++){
+    if(x0(grid, i)%2!=0) 
+      initial_coordinates[i]--;
+  }
+
   for (int i=0; i<nthreads; i++) {
     mat_para[i].grid = &grid;
-    if(i==(nthreads-1)) mat_para[i].num_of_cells_in_thread = number_of_lattice_cells - num_of_cells_in_thread*(nthreads-1);
-    else mat_para[i].num_of_cells_in_thread = num_of_cells_in_thread;
+    if(i==(nthreads-1)) 
+      mat_para[i].num_of_cells_in_thread = number_of_lattice_cells - num_of_cells_in_thread*(nthreads-1);
+    else 
+      mat_para[i].num_of_cells_in_thread = num_of_cells_in_thread;
     if(rank==0) std::cout<<"num_of_cells_in_thread is "<<mat_para[i].num_of_cells_in_thread<<" in thread "<<i<<"\n";
-    for(int k=0; k<dim; k++) mat_para[i].lattice_cells_each_dimension[k]=lattice_cells_each_dimension[k];
+
+    for(int k=0; k<dim; k++) 
+      mat_para[i].lattice_cells_each_dimension[k]=lattice_cells_each_dimension[k];
+
     mat_para[i].temperature_along_x = temperature_along_x;
-  }
+
+    for(int j=0; j<mat_para[i].num_of_cells_in_thread; j++){
+      int start_cell_numbering = num_of_cells_in_thread*i;
+      if(dim==2){
+        coordinates_of_cell[1]=(start_cell_numbering+j)%lattice_cells_each_dimension[1];//0-indexed
+        coordinates_of_cell[0]=(start_cell_numbering+j)/lattice_cells_each_dimension[1];
+      }else if(dim==3){
+        coordinates_of_cell[2]=(start_cell_numbering+j)%lattice_cells_each_dimension[2];//0-indexed
+        coordinates_of_cell[1]=((start_cell_numbering+j)/lattice_cells_each_dimension[2])%lattice_cells_each_dimension[1];
+        coordinates_of_cell[0]=((start_cell_numbering+j)/lattice_cells_each_dimension[2])/lattice_cells_each_dimension[1];
+      }
+      for(int ii=0; ii<dim; ii++){
+        x[ii]=initial_coordinates[ii]+2*coordinates_of_cell[ii];
+      }
+
+      if(dim==2){
+        x_prim = x;
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][0]+=1;
+
+        x_prim = x;
+        x_prim[1]=x[1]+1; //0,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][1]+=1;
+
+        x_prim = x;
+        x_prim[0]=x[0]+1; //1,0
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][2]+=1;
+
+        x_prim = x;
+        x_prim[0]=x[0]+1;
+        x_prim[1]=x[1]+1; //1,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][3]+=1;
+      }else if(dim==3){
+        x_prim = x;//0,0,0
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][0]+=1;
+
+        x_prim = x;
+        x_prim[2]=x[2]+1; //0,0,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][1]+=1;
+
+        x_prim = x;
+        x_prim[1]=x[1]+1; //0,1,0
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][2]+=1;
+
+        x_prim = x;
+        x_prim[2]=x[2]+1;
+        x_prim[1]=x[1]+1; //0,1,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][3]+=1;
+
+        x_prim = x;
+        x_prim[0]=x[0]+1; //1,0,0 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][4]+=1;
+
+        x_prim = x;
+        x_prim[2]=x[2]+1;
+        x_prim[0]=x[0]+1; //1,0,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][5]+=1;
+
+        x_prim = x;
+        x_prim[1]=x[1]+1;
+        x_prim[0]=x[0]+1; //1,1,0 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][6]+=1;
+
+        x_prim = x;
+        x_prim[2]=x[2]+1;
+        x_prim[1]=x[1]+1;
+        x_prim[0]=x[0]+1; //1,1,1 
+        if(!OutsideDomainCheck<dim>(grid, &x_prim)) num_of_grids_to_flip[i][7]+=1;
+      }
+    }// for int j 
+  }//for int i
 
 	for (int step=0; step<steps; step++){
 		unsigned long start = rdtsc();
-    int num_of_sublattices = 8;
+    int num_of_sublattices=0;
+    if(dim==2) num_of_sublattices = 4; 
+    else if(dim==3) num_of_sublattices = 8;
 		for (int sublattice=0; sublattice < num_of_sublattices; sublattice++) {
 			for (int i=0; i!= nthreads ; i++) {
         int cell_numbering = num_of_cells_in_thread*i; //0-indexed, celling_numbering is the start cell numbering
@@ -466,13 +559,14 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
         }
 	// if(dim==3 && rank==0) std::cout<<"cell_coord is "<<cell_coord[0]<<"  "<<cell_coord[1]<<"  "<<cell_coord[2]<<"\n";
 				mat_para[i].sublattice=sublattice;
+				mat_para[i].num_of_points_to_flip=num_of_grids_to_flip[i][sublattice];
         for(int k=0; k<dim; k++) mat_para[i].cell_coord[k]=cell_coord[k];
 				pthread_create(&p_threads[i], &attr, flip_index_helper<dim>, (void*) &mat_para[i] );
 
 			}//loop over threads
 
-			for (int i=0; i!= nthreads ; i++)
-				pthread_join(p_threads[i], NULL);
+			for (int ii=0; ii!= nthreads ; ii++)
+				pthread_join(p_threads[ii], NULL);
 
 			#ifdef MPI_VERSION
 			MPI::COMM_WORLD.Barrier();
@@ -489,11 +583,17 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	++iterations;
 	#endif
 
-	delete [] temperature_along_x ;
+  for(int i=0; i<nthreads; i++){
+    delete [] num_of_grids_to_flip[i];
+    num_of_grids_to_flip[i]=NULL;
+  }
+  delete num_of_grids_to_flip;
+  num_of_grids_to_flip=NULL;
+	delete [] temperature_along_x;
 	temperature_along_x=NULL;
-	delete [] p_threads ;
+	delete [] p_threads;
 	p_threads=NULL;
-	delete [] mat_para ;
+	delete [] mat_para;
 	mat_para=NULL;
 
 
