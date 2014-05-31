@@ -17,8 +17,6 @@
 #include"MMSP.hpp"
 #include"tessellate.hpp"
 #include"output.cpp"
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
 
 void print_progress(const int step, const int steps, const int iterations);
 
@@ -140,33 +138,27 @@ template <int dim> struct flip_index {
 
 void ReadTemperature(double* temperature_along_x, int size){
   std::ifstream ifs("plotdata_step_89.txt", std::ios::in);
-  std::vector<std::string> tokens;
-  std::vector<int> numbers_in_this_row;
-  std::string tmp_str;
   std::vector<std::pair<double, double> > coords_and_temperatures;
-  getline(ifs,tmp_str);//discard the first line;
-  while(getline(ifs,tmp_str)){//start from the second line
-    tokens.clear();
-    boost::algorithm::split(tokens, tmp_str, boost::algorithm::is_space()); 
-    double component1 = atof(tokens[0].c_str())*(size-1);
-    double component2 = atof(tokens[1].c_str());
-    coords_and_temperatures.push_back(std::make_pair(component1, component2));
+  double x_coordinate, temperature;
+  ifs.ignore(200, '\n');
+  while(ifs>>x_coordinate>>temperature){//start from the second line
+    coords_and_temperatures.push_back(std::make_pair(x_coordinate*(size-1), temperature));
   }
   ifs.close();
 /*
   for(unsigned int i=0; i<coords_and_temperatures.size(); i++){
-    std::cout<<coords_and_temperatures[i].first<<std::endl;
+    std::cout<<coords_and_temperatures[i].first<<"   "<<coords_and_temperatures[i].second<<std::endl;
   }
 */
   int loop_temperatures_count=0;
-  int i_last_step=0;
+  unsigned int i_last_step=0;
   unsigned int i=0;
+
   while(loop_temperatures_count<size){
     i=i_last_step;
-//    std::cout<<"loop_temperatures_count is "<<loop_temperatures_count<<std::endl;
+
     while(i<coords_and_temperatures.size()){
- //     std::cout<<(1.0*loop_temperatures_count)<<"  "<<coords_and_temperatures[i+1].first<<std::endl;
-      if(i!=coords_and_temperatures.size()-1 && (1.0*loop_temperatures_count)>coords_and_temperatures[i].first && coords_and_temperatures[i+1].first>(1.0*loop_temperatures_count)){
+      if(i!=coords_and_temperatures.size()-1 && loop_temperatures_count>(coords_and_temperatures[i].first) && (coords_and_temperatures[i+1].first)>loop_temperatures_count){
         temperature_along_x[loop_temperatures_count]=coords_and_temperatures[i].second+(coords_and_temperatures[i+1].second-coords_and_temperatures[i].second)/(coords_and_temperatures[i+1].first-coords_and_temperatures[i].first)*((1.0*loop_temperatures_count)-coords_and_temperatures[i].first);
         i_last_step = i;
         i++;
@@ -182,10 +174,10 @@ void ReadTemperature(double* temperature_along_x, int size){
     loop_temperatures_count++;
   }
 /*
-  std::cout<<(*temperature_along_x).size()<<std::endl;
-  for(unsigned int i=0; i<(*temperature_along_x).size(); i++){
-    std::cout<<(*temperature_along_x)[i]<<std::endl;
-  }*/
+  for(int i=0; i<size; i++){
+    std::cout<<temperature_along_x[i]<<std::endl;
+  }
+*/
 }
 
 
@@ -205,9 +197,6 @@ template <int dim> void* flip_index_helper( void* s )
 	for (int h=0; h<ss->num_of_points_to_flip; h++) {
 	  // choose a random cell to flip
     int cell_numbering_in_thread = rand()%(ss->num_of_cells_in_thread); //choose a cell to flip, from 0 to num_of_cells_in_thread-1
-//    int rank=MPI::COMM_WORLD.Get_rank(); 
-//    if(rank==0)
-//    std::cout<<"cell_numbering_in_thread is "<<cell_numbering_in_thread<<std::endl;
     if(dim==2){
       cell_coords_selected[1]=((ss->cell_coord)[1]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[1];//1-indexed
       cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[1]);
@@ -220,14 +209,6 @@ template <int dim> void* flip_index_helper( void* s )
     for(int i=0; i<dim; i++){
       x[i]=first_cell_start_coordinates[i]+2*cell_coords_selected[i];
     }
-
-
-/*    #ifdef MPI_VERSION
-
-      if(rank==0 && dim==3)
-	std::cout<<"coordinates are (before consider boundary)"<<x[0]<<"  "<<x[1]<<"  "<<x[2]<<std::endl;
-     #endif
-*/
 
     if(dim==2){
       switch(ss->sublattice){
@@ -250,17 +231,6 @@ template <int dim> void* flip_index_helper( void* s )
       }
     }
 
-
-      // if(dim==3 && rank==0) std::cout<<"cell_coord is "<<(ss->cell_coord)[0]<<"  "<<(ss->cell_coord)[1]<<"  "<<(ss->cell_coord)[2]<<"\n";
-      // if(dim==3 && rank==0) std::cout<<"cell_coords_selected is "<<cell_coords_selected[0]<<"  "<<cell_coords_selected[1]<<"  "<<cell_coords_selected[2]<<"\n";
-/*      if(dim==3 && rank==0){
-      std::cout<<"sublattice is "<<ss->sublattice<<"\n";
-      std::cout<<"cell_coords_selected is "<<cell_coords_selected[0]<<"  "<<cell_coords_selected[1]<<"  "<<cell_coords_selected[2]<<"\n";  
-      std::cout<<"coordinates are "<<x[0]<<"  "<<x[1]<<"  "<<x[2]<<std::endl;
-      }
-*/
-
-  
     bool site_out_of_domain = false;
     for(int i=0; i<dim; i++)
       if(x[i]<x0(*(ss->grid), i) || x[i]>x1(*(ss->grid), i)){
@@ -402,12 +372,14 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
       lattice_cells_each_dimension[i] = 1+LargeNearestInteger(dimension_length,2);
     number_of_lattice_cells *= lattice_cells_each_dimension[i];
   }
+  #ifndef SILENT
   if(rank==0){ 
-    std::cout<<"lattice_cells_each_dimension is ";
+    std::cout<<"lattice_cells_each_dimension are:  ";
     for(int i=0; i<dim; i++)
       std::cout<<lattice_cells_each_dimension[i]<<"  ";
     std::cout<<"\n";
   }
+  #endif
 
   
 //----------assign cells for each pthreads
@@ -455,7 +427,10 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
       mat_para[i].num_of_cells_in_thread = number_of_lattice_cells - num_of_cells_in_thread*(nthreads-1);
     else 
       mat_para[i].num_of_cells_in_thread = num_of_cells_in_thread;
+
+    #ifndef SILENT
     if(rank==0) std::cout<<"num_of_cells_in_thread is "<<mat_para[i].num_of_cells_in_thread<<" in thread "<<i<<"\n";
+    #endif
 
     for(int k=0; k<dim; k++) 
       mat_para[i].lattice_cells_each_dimension[k]=lattice_cells_each_dimension[k];
@@ -540,7 +515,6 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 		for (int sublattice=0; sublattice < num_of_sublattices; sublattice++) {
 			for (int i=0; i!= nthreads ; i++) {
         int cell_numbering = num_of_cells_in_thread*i; //0-indexed, celling_numbering is the start cell numbering
-//        if(rank==0) std::cout<<"cell_numbering is "<<cell_numbering<<"\n";
         if(dim==2){
           cell_coord[1]=cell_numbering%lattice_cells_each_dimension[1];//0-indexed
           cell_coord[0]=(cell_numbering/lattice_cells_each_dimension[1]);
@@ -557,7 +531,6 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	          exit(1);
 	        }
         }
-	// if(dim==3 && rank==0) std::cout<<"cell_coord is "<<cell_coord[0]<<"  "<<cell_coord[1]<<"  "<<cell_coord[2]<<"\n";
 				mat_para[i].sublattice=sublattice;
 				mat_para[i].num_of_points_to_flip=num_of_grids_to_flip[i][sublattice];
         for(int k=0; k<dim; k++) mat_para[i].cell_coord[k]=cell_coord[k];
@@ -601,7 +574,6 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 	#ifdef MPI_VERSION
 	MPI::COMM_WORLD.Allreduce(&update_timer, &total_update_time, 1, MPI_UNSIGNED_LONG, MPI_SUM);
 	#endif
-	//if(rank==0) std::cout<<"Monte Carlo total update time is "<<total_update_time<<std::endl;
 	return total_update_time/np; // average update time
 }
 
