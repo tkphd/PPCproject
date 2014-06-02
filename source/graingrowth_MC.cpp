@@ -137,7 +137,7 @@ template <int dim> struct flip_index {
 };
 
 void ReadTemperature(double* temperature_along_x, int size){
-  std::ifstream ifs("plotdata_step_89.txt", std::ios::in);
+  std::ifstream ifs("sample_temperature.txt", std::ios::in); // sample_temperature.txt is a sample temperature file. temperature is assumed to be a function (only) of x coordinate. 1 st column means x coordinate and 2nd column means temperature. The 1st row of the file (current time is XXXX) is the time record from heater transfer simulation.
   std::vector<std::pair<double, double> > coords_and_temperatures;
   double x_coordinate, temperature;
   ifs.ignore(200, '\n');
@@ -198,12 +198,12 @@ template <int dim> void* flip_index_helper( void* s )
 	  // choose a random cell to flip
     int cell_numbering_in_thread = rand()%(ss->num_of_cells_in_thread); //choose a cell to flip, from 0 to num_of_cells_in_thread-1
     if(dim==2){
-      cell_coords_selected[1]=((ss->cell_coord)[1]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[1];//1-indexed
-      cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[1]);
+      cell_coords_selected[dim-1]=((ss->cell_coord)[dim-1]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[dim-1];//1-indexed
+      cell_coords_selected[0]=(ss->cell_coord)[0]+(((ss->cell_coord)[dim-1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[dim-1]);
     }else if(dim==3){
-      cell_coords_selected[2]=((ss->cell_coord)[2]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[2];//1-indexed
-      cell_coords_selected[1]=(  (ss->cell_coord)[1]+ ((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2]  )%(ss->lattice_cells_each_dimension)[1];
-      cell_coords_selected[0]=(ss->cell_coord)[0]+ ( (ss->cell_coord)[1] + ((ss->cell_coord)[2]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[2] ) /(ss->lattice_cells_each_dimension)[1];
+      cell_coords_selected[dim-1]=((ss->cell_coord)[dim-1]+cell_numbering_in_thread)%(ss->lattice_cells_each_dimension)[dim-1];//1-indexed
+      cell_coords_selected[1]=(  (ss->cell_coord)[1]+ ((ss->cell_coord)[dim-1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[dim-1]  )%(ss->lattice_cells_each_dimension)[1];
+      cell_coords_selected[0]=(ss->cell_coord)[0]+ ( (ss->cell_coord)[1] + ((ss->cell_coord)[dim-1]+cell_numbering_in_thread)/(ss->lattice_cells_each_dimension)[dim-1] ) /(ss->lattice_cells_each_dimension)[1];
     }
  
     for(int i=0; i<dim; i++){
@@ -390,8 +390,6 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     exit(0);
   }
 
-  int cell_coord[dim];//record the start coordinates of each pthread domain.
-  
   int size=(g1(grid, 0)-g0(grid, 0)+1);
   double *temperature_along_x = new double[size];
   if(rank==0){
@@ -403,7 +401,17 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
 
 	vector<int> x (dim,0);
 	vector<int> x_prim (dim,0);
+  int coordinates_of_cell[dim];
+  int initial_coordinates[dim];
   
+  int **cell_coord = new int*[nthreads];//record the start coordinates of each pthread domain.
+  for(int i=0; i<nthreads; i++){
+    cell_coord[i] = new int[dim];
+    for(int j=0; j<dim; j++){
+      cell_coord[i][j]=0;
+    }
+  }
+
   int **num_of_grids_to_flip = new int*[nthreads];
   for(int i=0; i<nthreads; i++){
     num_of_grids_to_flip[i] = new int[( static_cast<int>(pow(2,dim)) )];
@@ -411,8 +419,6 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
       num_of_grids_to_flip[i][j]=0;
     }
   }
-  int coordinates_of_cell[dim];
-  int initial_coordinates[dim];
 
   for(int k=0; k<dim; k++) 
     initial_coordinates[k] = x0(grid, k);
@@ -422,6 +428,24 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
   }
 
   for (int i=0; i<nthreads; i++) {
+        int cell_numbering = num_of_cells_in_thread*i; //0-indexed, celling_numbering is the start cell numbering
+        if(dim==2){
+          cell_coord[i][dim-1]=cell_numbering%lattice_cells_each_dimension[dim-1];//0-indexed
+          cell_coord[i][0]=(cell_numbering/lattice_cells_each_dimension[dim-1]);
+	        if(cell_coord[i][0]>=lattice_cells_each_dimension[0]){
+	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
+	          exit(1);
+	        }
+        }else if(dim==3){
+          cell_coord[i][dim-1]=cell_numbering%lattice_cells_each_dimension[dim-1];//0-indexed
+          cell_coord[i][1]=(cell_numbering/lattice_cells_each_dimension[dim-1])%lattice_cells_each_dimension[1];
+          cell_coord[i][0]=(cell_numbering/lattice_cells_each_dimension[dim-1])/lattice_cells_each_dimension[1];
+	        if(cell_coord[i][0]>=lattice_cells_each_dimension[0]){
+	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
+	          exit(1);
+	        }
+        }
+
     mat_para[i].grid = &grid;
     if(i==(nthreads-1)) 
       mat_para[i].num_of_cells_in_thread = number_of_lattice_cells - num_of_cells_in_thread*(nthreads-1);
@@ -440,12 +464,12 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     for(int j=0; j<mat_para[i].num_of_cells_in_thread; j++){
       int start_cell_numbering = num_of_cells_in_thread*i;
       if(dim==2){
-        coordinates_of_cell[1]=(start_cell_numbering+j)%lattice_cells_each_dimension[1];//0-indexed
-        coordinates_of_cell[0]=(start_cell_numbering+j)/lattice_cells_each_dimension[1];
+        coordinates_of_cell[dim-1]=(start_cell_numbering+j)%lattice_cells_each_dimension[dim-1];//0-indexed
+        coordinates_of_cell[0]=(start_cell_numbering+j)/lattice_cells_each_dimension[dim-1];
       }else if(dim==3){
-        coordinates_of_cell[2]=(start_cell_numbering+j)%lattice_cells_each_dimension[2];//0-indexed
-        coordinates_of_cell[1]=((start_cell_numbering+j)/lattice_cells_each_dimension[2])%lattice_cells_each_dimension[1];
-        coordinates_of_cell[0]=((start_cell_numbering+j)/lattice_cells_each_dimension[2])/lattice_cells_each_dimension[1];
+        coordinates_of_cell[dim-1]=(start_cell_numbering+j)%lattice_cells_each_dimension[dim-1];//0-indexed
+        coordinates_of_cell[1]=((start_cell_numbering+j)/lattice_cells_each_dimension[dim-1])%lattice_cells_each_dimension[1];
+        coordinates_of_cell[0]=((start_cell_numbering+j)/lattice_cells_each_dimension[dim-1])/lattice_cells_each_dimension[1];
       }
       for(int ii=0; ii<dim; ii++){
         x[ii]=initial_coordinates[ii]+2*coordinates_of_cell[ii];
@@ -514,26 +538,9 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
     else if(dim==3) num_of_sublattices = 8;
 		for (int sublattice=0; sublattice < num_of_sublattices; sublattice++) {
 			for (int i=0; i!= nthreads ; i++) {
-        int cell_numbering = num_of_cells_in_thread*i; //0-indexed, celling_numbering is the start cell numbering
-        if(dim==2){
-          cell_coord[1]=cell_numbering%lattice_cells_each_dimension[1];//0-indexed
-          cell_coord[0]=(cell_numbering/lattice_cells_each_dimension[1]);
-	        if(cell_coord[0]>=lattice_cells_each_dimension[0]){
-	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
-	          exit(1);
-	        }
-        }else if(dim==3){
-          cell_coord[2]=cell_numbering%lattice_cells_each_dimension[2];//0-indexed
-          cell_coord[1]=(cell_numbering/lattice_cells_each_dimension[2])%lattice_cells_each_dimension[1];
-          cell_coord[0]=(cell_numbering/lattice_cells_each_dimension[2])/lattice_cells_each_dimension[1];
-	        if(cell_coord[0]>=lattice_cells_each_dimension[0]){
-	          std::cerr<<"the cell coordinates is wrong!"<<std::endl;
-	          exit(1);
-	        }
-        }
 				mat_para[i].sublattice=sublattice;
 				mat_para[i].num_of_points_to_flip=num_of_grids_to_flip[i][sublattice];
-        for(int k=0; k<dim; k++) mat_para[i].cell_coord[k]=cell_coord[k];
+        for(int k=0; k<dim; k++) mat_para[i].cell_coord[k]=cell_coord[i][k];
 				pthread_create(&p_threads[i], &attr, flip_index_helper<dim>, (void*) &mat_para[i] );
 
 			}//loop over threads
@@ -559,9 +566,13 @@ template <int dim> unsigned long update(MMSP::grid<dim, int>& grid, int steps, i
   for(int i=0; i<nthreads; i++){
     delete [] num_of_grids_to_flip[i];
     num_of_grids_to_flip[i]=NULL;
+    delete [] cell_coord[i];
+    cell_coord[i]=NULL;
   }
-  delete num_of_grids_to_flip;
-  num_of_grids_to_flip=NULL;
+  delete num_of_grids_to_flip; 
+  num_of_grids_to_flip=NULL; 
+  delete cell_coord;
+  cell_coord=NULL;
 	delete [] temperature_along_x;
 	temperature_along_x=NULL;
 	delete [] p_threads;
