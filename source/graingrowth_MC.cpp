@@ -35,7 +35,7 @@ unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 
 	unsigned long timer=0;
 	if (dim == 2) {
-		const int edge = 256;
+		const int edge = 1024;
 		int number_of_fields(seeds);
 		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge)/(M_PI*10.*10.)); // average grain is a disk of radius 10
 		#ifdef MPI_VERSION
@@ -56,15 +56,13 @@ unsigned long generate(MMSP::grid<dim,int >*& grid, int seeds, int nthreads)
 		MPI::COMM_WORLD.Barrier();
 		#endif
 	} else if (dim == 3) {
-		const int edge_x = 48;
-    const int edge_y = 48;
-    const int edge_z = 48;
+		const int edge = 512;
 		int number_of_fields(seeds);
-		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge_x*edge_y*edge_z)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
+		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge*edge)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
 		#ifdef MPI_VERSION
 		while (number_of_fields % np) --number_of_fields;
 		#endif
-		grid = new MMSP::grid<dim,int>(0, 0, edge_x, 0, edge_y, 0, edge_z);
+		grid = new MMSP::grid<dim,int>(0, 0, edge, 0, edge, 0, edge);
 
 		#ifdef MPI_VERSION
 		number_of_fields /= np;
