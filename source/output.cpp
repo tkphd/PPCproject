@@ -434,11 +434,7 @@ double output_split(const MMSP::grid<dim,T>& GRID, char* filename, const int nfi
 	MPI::COMM_WORLD.Barrier();
 
 	// get grid data to write
-	#ifndef RAW
-	const unsigned long size=write_buffer_bgq(GRID, databuffer, nthreads);
-	#else
 	const unsigned long size=write_buffer(GRID, databuffer);
-	#endif
 	assert(databuffer!=NULL);
 	if (rank==0) {
 		// Rank 0 holds the global header -- needs to be the first thing written!

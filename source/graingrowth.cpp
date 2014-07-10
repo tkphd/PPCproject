@@ -66,7 +66,7 @@ unsigned long generate(MMSP::grid<dim,MMSP::sparse<float> >*& grid, int seeds, i
 		MPI::COMM_WORLD.Barrier();
 		#endif
 	} else if (dim == 3) {
-		const int edge = 512;
+		const int edge = 64;
 		int number_of_fields(seeds);
 		if (number_of_fields==0) number_of_fields = static_cast<int>(float(edge*edge*edge)/(4./3*M_PI*10.*10.*10.)); // Average grain is a sphere of radius 10 voxels
 		#ifdef MPI_VERSION

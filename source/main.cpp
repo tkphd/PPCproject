@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		nthreads = atoi(argv[6]);
-		// must have integral output increment
+		// must have integral nthreads
 		if (std::string(argv[6]).find_first_not_of("0123456789") != std::string::npos) {
 			std::cout << PROGRAM << ": nthreads must have integral value.  Use\n\n";
 			std::cout << "    " << PROGRAM << " --help\n\n";
@@ -485,6 +485,11 @@ int main(int argc, char* argv[]) {
 		int increment;
 		std::string outfile;
 
+    outfile = argv[1];
+    steps = atoi(argv[2]);
+    increment = atoi(argv[3]);
+		nthreads = atoi(argv[4]);
+/*
 		if (std::string(argv[2]).find_first_not_of("0123456789") == std::string::npos) {
 			// set output file name
 			outfile = argv[1];
@@ -555,8 +560,11 @@ int main(int argc, char* argv[]) {
 					std::cout << "to generate help message.\n\n";
 					exit(-1);
 				}
+
 			}
 		}
+*/
+
 
 		// file open error check
 		std::ifstream input(argv[1]);
